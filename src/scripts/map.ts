@@ -1009,7 +1009,32 @@ async function init(root: HTMLElement) {
       if (ca < 0.02 || members.length === 0) continue;
       const tx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
       const ty = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
-      const tr = clusterRadius(members);
+      // The count-derived radius is a FLOOR, not the whole answer.
+      //
+      // Positions come from a simulation that sees every member of a domain,
+      // but only the members alive in the current era are drawn. Early in the
+      // sweep three of fifteen apps might be visible while sitting anywhere
+      // across the spread of all fifteen, so a circle sized purely by how many
+      // are visible draws smaller than the dots it claims to contain and they
+      // hang outside it until the era catches up.
+      //
+      // So take whichever is larger. A settled cluster is sized by membership,
+      // which is what makes size mean something; a partly-populated one grows
+      // to hold what it is actually enclosing. The boundary never makes a
+      // claim that is visibly false.
+      //
+      // Reach is measured over every dot that is DRAWN, not just the ones
+      // solid enough to count toward the size, because a fading ghost outside
+      // the ring looks exactly as wrong as a bright one.
+      let reach = 0;
+      for (const n of simNodes) {
+        if (n.domain !== d || !matchesFilter(n) || svOf(n) < 0.03) continue;
+        reach = Math.max(
+          reach,
+          Math.hypot((n.x ?? 0) - tx, (n.y ?? 0) - ty) + footprintOf(n) + 10,
+        );
+      }
+      const tr = Math.max(clusterRadius(members), reach);
       // Boundary geometry chases its target: circles reshape and grow rather
       // than snapping when a member arrives or departs.
       let geo = clusterGeo.get(d);
@@ -1020,7 +1045,11 @@ async function init(root: HTMLElement) {
       const k = 1 - Math.exp(-dt / 300);
       geo.cx += (tx - geo.cx) * k;
       geo.cy += (ty - geo.cy) * k;
-      geo.r += (tr - geo.r) * k;
+      // Growth and shrink are not symmetric. Lagging while growing leaves a dot
+      // stranded outside the ring, which is the whole bug this guards against;
+      // lagging while shrinking is merely a circle that stays roomy a moment
+      // longer. So expand quickly and contract lazily.
+      geo.r += (tr - geo.r) * (1 - Math.exp(-dt / (tr > geo.r ? 80 : 420)));
       const cx = geo.cx;
       const cy = geo.cy;
       const cr = geo.r;
