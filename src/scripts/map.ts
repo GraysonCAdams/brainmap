@@ -98,12 +98,27 @@ async function init(root: HTMLElement) {
   const centroid = new Map<string, { x: number; y: number }>();
   domains.forEach((d, i) => {
     const angle = (i / domains.length) * Math.PI * 2 - Math.PI / 2;
-    centroid.set(d, { x: Math.cos(angle) * 240, y: Math.sin(angle) * 150 });
+    centroid.set(d, { x: Math.cos(angle) * 430, y: Math.sin(angle) * 290 });
   });
 
   // Size = scale (1-5). Teasers stay small regardless.
   const radiusOf = (n: GraphNode) =>
     n.visibility === 'teaser' ? 5 : 5.5 + (n.scale ?? 2) * 2;
+
+  // A cluster's radius comes from HOW MANY nodes it holds, not from how far
+  // the furthest one happens to have drifted. An enclosing-circle radius lets
+  // a single outlier inflate the whole ring, so size stopped meaning
+  // membership and started meaning scatter. This is the area a circle packing
+  // of that many dots needs, at an empirical packing efficiency, which makes
+  // a one-node group legibly small and a 25-node group legibly large.
+  const NODE_GAP = 9;
+  const BOUNDARY_PAD = 26;
+  const PACK = 0.62;
+  const clusterRadius = (members: GraphNode[]) => {
+    if (!members.length) return 0;
+    const avg = members.reduce((sum, n) => sum + radiusOf(n), 0) / members.length;
+    return BOUNDARY_PAD + Math.sqrt(members.length / PACK) * (avg + NODE_GAP);
+  };
 
   // Tight round clumps: strong centroid gravity + modest repulsion means the
   // members themselves form the circle the boundary traces.
@@ -114,22 +129,38 @@ async function init(root: HTMLElement) {
     .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 11))
     .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.24))
     .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24))
+    // Keep every member inside its own count-sized circle. Without this the
+    // ring would be a claim the layout does not honour.
+    .force('contain', () => {
+      for (const d of domains) {
+        const members = data.nodes.filter((n) => n.domain === d);
+        if (!members.length) continue;
+        const cx = members.reduce((sum, n) => sum + (n.x ?? 0), 0) / members.length;
+        const cy = members.reduce((sum, n) => sum + (n.y ?? 0), 0) / members.length;
+        const R = clusterRadius(members);
+        for (const n of members) {
+          const dx = (n.x ?? 0) - cx;
+          const dy = (n.y ?? 0) - cy;
+          const dist = Math.hypot(dx, dy) || 1;
+          const maxD = Math.max(0, R - radiusOf(n) - 6);
+          if (dist <= maxD) continue;
+          const pull = ((dist - maxD) / dist) * 0.32;
+          n.x = (n.x ?? 0) - dx * pull;
+          n.y = (n.y ?? 0) - dy * pull;
+        }
+      }
+    })
     // cluster de-overlap: treat each domain as a circle (same geometry the
     // boundary draws) and push whole clusters apart when circles collide
     .force('declump', (alpha: number) => {
-      const BOUNDARY_PAD = 22;
-      const GAP = 14;
+      const GAP = 52;
       const clusters = domains
         .map((d) => {
           const members = data.nodes.filter((n) => n.domain === d);
           if (members.length === 0) return null;
           const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
           const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
-          const r =
-            Math.max(
-              ...members.map((n) => Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy) + radiusOf(n)),
-            ) + BOUNDARY_PAD;
-          return { members, cx, cy, r };
+          return { members, cx, cy, r: clusterRadius(members) };
         })
         .filter((c): c is NonNullable<typeof c> => c !== null);
       for (let i = 0; i < clusters.length; i++) {
@@ -868,23 +899,22 @@ async function init(root: HTMLElement) {
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
 
-    // cluster boundaries: enclosing CIRCLE per domain (2+ visible members),
+    // cluster boundaries: one CIRCLE per domain, sized by member count, drawn
+    // even around a single node so a lone idea still reads as belonging,
     // label breaking the stroke at the top like a fieldset legend.
     // Boundaries fade in/out instead of popping as eras change.
     for (const d of domains) {
       const members = data.nodes.filter(
         (n) => n.domain === d && matchesFilter(n) && svOf(n) > 0.4,
       );
-      const target = members.length >= 2 ? 1 : 0;
+      const target = members.length >= 1 ? 1 : 0;
       let ca = clusterAlpha.get(d) ?? 0;
       ca = target ? Math.min(1, ca + dt / 260) : Math.max(0, ca - dt / 380);
       clusterAlpha.set(d, ca);
       if (ca < 0.02 || members.length === 0) continue;
       const tx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
       const ty = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
-      const tr =
-        Math.max(...members.map((n) => Math.hypot((n.x ?? 0) - tx, (n.y ?? 0) - ty) + radiusOf(n))) +
-        22;
+      const tr = clusterRadius(members);
       // Boundary geometry chases its target: circles reshape and grow rather
       // than snapping when a member arrives or departs.
       let geo = clusterGeo.get(d);
