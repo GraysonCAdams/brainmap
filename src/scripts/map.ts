@@ -167,6 +167,44 @@ async function init(root: HTMLElement) {
   sel.call(zoomer);
   sel.call(zoomer.transform, transform);
 
+  // ---- Intro camera: eases toward a transform that frames every visible dot,
+  // so the view pulls back as the map fills instead of letting early years
+  // drift off screen. Any real user gesture hands the camera back immediately.
+  let introCam = false;
+  const releaseIntroCam = () => {
+    introCam = false;
+  };
+  sel.on('wheel.introcam pointerdown.introcam touchstart.introcam', releaseIntroCam);
+  const fitCamera = (nodes: GraphNode[], dt: number) => {
+    if (!nodes.length) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of nodes) {
+      const nx = n.x ?? 0;
+      const ny = n.y ?? 0;
+      if (nx < minX) minX = nx;
+      if (nx > maxX) maxX = nx;
+      if (ny < minY) minY = ny;
+      if (ny > maxY) maxY = ny;
+    }
+    // Padding leaves room for labels, which hang below their dot.
+    const pad = 90;
+    const w = Math.max(1, maxX - minX + pad * 2);
+    const h = Math.max(1, maxY - minY + pad * 2);
+    const k = Math.max(0.35, Math.min(1.6, Math.min(width / w, height / h)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    // Critically damped chase: no overshoot, frame-rate independent.
+    const s = 1 - Math.exp(-dt / 420);
+    const nk = transform.k + (k - transform.k) * s;
+    const nx = transform.x + (width / 2 - cx * nk - transform.x) * s;
+    const ny = transform.y + (height / 2 - cy * nk - transform.y) * s;
+    transform = zoomIdentity.translate(nx, ny).scale(nk);
+    sel.call(zoomer.transform, transform);
+  };
+
   let hovered: GraphNode | null = null;
 
   // ---- Facet filters: domains and tech; AND across facets, OR within.
@@ -218,8 +256,15 @@ async function init(root: HTMLElement) {
         : NOW;
     return [start, end];
   };
+  // Intro phase 1: the map ACCUMULATES. Every idea that has been born stays on
+  // screen and the camera pulls back to hold them all, so the tour reads as a
+  // life filling in rather than a window scrolling over it. The relevance
+  // window only starts mattering in phase 4, when the range selector appears
+  // and visibly narrows to it.
+  let introAccumulate = false;
   const relevance = (n: GraphNode): number => {
     const [start, end] = spanOf(n);
+    if (introAccumulate) return start <= focus ? 1 : 0;
     const wStart = focus - behind;
     const wEnd = focus + ahead;
     // The future hasn't happened yet: no pre-echo ghosts ahead of the window.
@@ -232,6 +277,7 @@ async function init(root: HTMLElement) {
 
   // Timeline DOM
   const tl = {
+    wrap: document.getElementById('timeline') as HTMLElement | null,
     track: document.getElementById('tl-track') as HTMLElement,
     ticks: document.getElementById('tl-ticks') as HTMLElement,
     region: document.getElementById('tl-region') as HTMLElement,
@@ -358,7 +404,22 @@ async function init(root: HTMLElement) {
     if (!sweepActive) return;
     sweepActive = false;
     cancelAnimationFrame(sweepRaf);
+    // Bail out of every intro-only mode; leaving accumulate on would pin all
+    // 26 years of dots on screen permanently.
+    introAccumulate = false;
+    introCam = false;
+    behind = DEFAULT_BEHIND;
+    ahead = DEFAULT_AHEAD;
+    tl.wrap?.classList.remove('tl-enter');
+    renderTimeline();
   };
+  // The tour only starts once the whoami modal is gone; running it behind the
+  // backdrop wastes it on the exact visitor it exists for.
+  const whenBegun = (fn: () => void) => {
+    if ((window as unknown as { brainmapBegin?: boolean }).brainmapBegin) fn();
+    else addEventListener('brainmap:begin', fn, { once: true });
+  };
+
   if (!reducedMotion && !location.hash) {
     const starts = [...startMsOf.values()].sort((a, b) => a - b);
     const first = starts[0] ?? T0;
@@ -389,7 +450,15 @@ async function init(root: HTMLElement) {
 
     const LINGER_MS = 1600;
     const SWEEP_MS = 18400; // ~20s tour total, distributed by idea density
-    setTimeout(() => {
+    const HOLD_MS = 2600; // sit on the finished map before explaining it
+    const NARROW_MS = 2200; // range selector shrinking to its resting width
+
+    // Phase 1 begins: accumulate, and let the camera pull back to hold it all.
+    introAccumulate = true;
+    introCam = true;
+    tl.wrap?.classList.add('tl-enter');
+
+    whenBegun(() => setTimeout(() => {
       if (!sweepActive) return;
       const t0ms = performance.now();
       const step = (nowMs: number) => {
@@ -399,14 +468,47 @@ async function init(root: HTMLElement) {
         renderTimeline();
         if (u < 1) {
           sweepRaf = requestAnimationFrame(step);
-        } else {
-          sweepActive = false;
-          focus = NOW;
-          renderTimeline();
+          return;
         }
+        // ---- Phase 2: every dot is on screen. Hold, so the full span reads
+        // as a finished picture before anything starts taking it away.
+        focus = NOW;
+        behind = NOW - T0; // window already spans everything; nothing moves yet
+        ahead = DEFAULT_AHEAD;
+        renderTimeline();
+        setTimeout(() => {
+          if (!sweepActive) return;
+          // ---- Phase 3: introduce the control that explains the view.
+          tl.wrap?.classList.remove('tl-enter');
+          // ---- Phase 4: hand the window back to the real relevance math and
+          // narrow it. Dots fall away in step with the shrinking selector,
+          // which is what teaches the reader what the selector does.
+          setTimeout(() => {
+            if (!sweepActive) return;
+            introAccumulate = false;
+            const fromBehind = behind;
+            const n0 = performance.now();
+            const ease = (u: number) => 1 - Math.pow(1 - u, 3);
+            const narrow = (nowMs: number) => {
+              if (!sweepActive) return;
+              const u = Math.max(0, Math.min(1, (nowMs - n0) / NARROW_MS));
+              behind = fromBehind + (DEFAULT_BEHIND - fromBehind) * ease(u);
+              renderTimeline();
+              if (u < 1) {
+                sweepRaf = requestAnimationFrame(narrow);
+              } else {
+                behind = DEFAULT_BEHIND;
+                renderTimeline();
+                sweepActive = false;
+                introCam = false;
+              }
+            };
+            sweepRaf = requestAnimationFrame(narrow);
+          }, 700); // let the selector land before it starts moving
+        }, HOLD_MS);
       };
       sweepRaf = requestAnimationFrame(step);
-    }, LINGER_MS);
+    }, LINGER_MS));
   } else {
     renderTimeline();
   }
@@ -552,6 +654,13 @@ async function init(root: HTMLElement) {
       nodeVis.set(n.id, cur + Math.sign(diff) * Math.min(Math.abs(diff), step));
     }
     const svOf = (n: GraphNode) => nodeVis.get(n.id) ?? 0;
+
+    if (introCam) {
+      fitCamera(
+        data.nodes.filter((n) => svOf(n) > 0.05 && matchesFilter(n)),
+        dt,
+      );
+    }
 
     ctx.clearRect(0, 0, width, height);
 
@@ -729,13 +838,32 @@ async function init(root: HTMLElement) {
       if (st.alpha > 0.02 && zoomAlpha > 0.02) {
         const typing = wanted && st.typed < n.title.length;
         const shown = wanted ? n.title.slice(0, Math.ceil(st.typed)) : n.title;
+        const label = typing ? `${shown}_` : shown;
         // sqrt(sv): the label brightens ahead of the still-growing newborn
         // dot so the type-in is legible from its first character
-        ctx.globalAlpha = (visible ? baseAlpha * Math.sqrt(sv) : 0.07) * zoomAlpha * st.alpha;
+        const la = (visible ? baseAlpha * Math.sqrt(sv) : 0.07) * zoomAlpha * st.alpha;
+        const lx = x;
+        const ly = y + r + 14 / transform.k;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
-        ctx.fillStyle = isActive ? INK : INK_DIM;
         ctx.textAlign = 'center';
-        ctx.fillText(typing ? `${shown}_` : shown, x, y + r + 14 / transform.k);
+
+        // Halo. A label is drawn semi-transparent, so without this the dashed
+        // edges and cluster rings behind it composite THROUGH the letterforms
+        // and read as a strikethrough. Knocking the ground out from under the
+        // glyphs is the fix; drawing the label opaque instead would flatten
+        // the depth cue that dims distant eras.
+        // Kept more opaque than the text so it still clears at low label alpha.
+        ctx.globalAlpha = Math.min(1, la * 2.2);
+        ctx.strokeStyle = GROUND;
+        ctx.lineWidth = 4 / transform.k;
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.strokeText(label, lx, ly);
+
+        ctx.globalAlpha = la;
+        ctx.fillStyle = isActive ? INK : INK_DIM;
+        ctx.fillText(label, lx, ly);
+        ctx.lineJoin = 'miter';
       }
       ctx.globalAlpha = 1;
     }
