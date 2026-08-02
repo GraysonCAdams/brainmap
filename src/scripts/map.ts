@@ -112,7 +112,48 @@ async function init(root: HTMLElement) {
     .force('charge', forceManyBody().strength(-90))
     .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 11))
     .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.24))
-    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24));
+    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24))
+    // cluster de-overlap: treat each domain as a circle (same geometry the
+    // boundary draws) and push whole clusters apart when circles collide
+    .force('declump', (alpha: number) => {
+      const BOUNDARY_PAD = 22;
+      const GAP = 14;
+      const clusters = domains
+        .map((d) => {
+          const members = data.nodes.filter((n) => n.domain === d);
+          if (members.length === 0) return null;
+          const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
+          const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
+          const r =
+            Math.max(
+              ...members.map((n) => Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy) + radiusOf(n)),
+            ) + BOUNDARY_PAD;
+          return { members, cx, cy, r };
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      for (let i = 0; i < clusters.length; i++) {
+        for (let j = i + 1; j < clusters.length; j++) {
+          const a = clusters[i];
+          const b = clusters[j];
+          const dx = b.cx - a.cx;
+          const dy = b.cy - a.cy;
+          const dist = Math.hypot(dx, dy) || 1;
+          const need = a.r + b.r + GAP;
+          if (dist >= need) continue;
+          const push = ((need - dist) / dist) * 0.5 * Math.min(1, alpha * 6);
+          const px = dx * push;
+          const py = dy * push;
+          for (const n of a.members) {
+            n.x = (n.x ?? 0) - px;
+            n.y = (n.y ?? 0) - py;
+          }
+          for (const n of b.members) {
+            n.x = (n.x ?? 0) + px;
+            n.y = (n.y ?? 0) + py;
+          }
+        }
+      }
+    });
 
   let transform: ZoomTransform = zoomIdentity.translate(width / 2, height / 2);
   const zoomer = zoom<HTMLCanvasElement, unknown>()
@@ -198,7 +239,11 @@ async function init(root: HTMLElement) {
     reset: document.getElementById('tl-reset') as HTMLElement,
   };
   const pct = (t: number) => ((t - T0) / (NOW - T0)) * 100;
-  const fromPct = (p: number) => T0 + (Math.min(1, Math.max(0, p)) * (NOW - T0));
+  // Deliberately unclamped: clamping the POINTER here made year 2000
+  // unreachable as a center point when dragging the band by its left half
+  // (the grab-offset math needs virtual positions past the track edge).
+  // Only `focus` itself is clamped, at assignment.
+  const fromPct = (p: number) => T0 + p * (NOW - T0);
   const renderTimeline = () => {
     tl.handle.style.left = `${pct(focus)}%`;
     // true width always; overhang past either end is clipped, never squashed

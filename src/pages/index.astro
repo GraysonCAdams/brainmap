@@ -99,6 +99,15 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
             ))
           }
         </div>
+        <p class="panel-title panel-title-stack">## key</p>
+        <div class="key-rows">
+          <span><i class="key key-idea"></i>idea</span>
+          <span><i class="key key-building"></i>building</span>
+          <span><i class="key key-shipped"></i>shipped</span>
+          <span><i class="key key-retired"></i>retired</span>
+          <span><i class="key key-teaser"></i>stealth</span>
+        </div>
+        <p class="panel-hint">color = domain · size = scope</p>
       </div>
     </aside>
 
@@ -119,14 +128,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
       <button id="tl-reset" title="reset to today" aria-label="Reset to today">&#8634;</button>
     </div>
 
-    <footer class="legend data" aria-label="How to read the map">
-      <span><i class="key key-idea"></i>idea</span>
-      <span><i class="key key-building"></i>building</span>
-      <span><i class="key key-shipped"></i>shipped</span>
-      <span><i class="key key-retired"></i>retired</span>
-      <span><i class="key key-teaser"></i>in stealth</span>
-      <span class="legend-hint">color = domain · size = scope · drag, pinch, scroll</span>
-    </footer>
   </main>
 </Base>
 
@@ -571,17 +572,13 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     font-variant-numeric: tabular-nums;
   }
 
-  .legend {
-    position: absolute;
-    left: var(--space-4);
-    bottom: calc(var(--space-3) + 3.4rem + env(safe-area-inset-bottom, 0px));
+  .key-rows {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-3);
-    align-items: center;
-    font-size: var(--text-xs);
+    gap: 4px 12px;
+    font-size: 0.68rem;
     color: var(--ink-dim);
-    pointer-events: none;
+    padding: 2px var(--space-2) 0;
   }
   .key {
     display: inline-block;
@@ -608,9 +605,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   .key-teaser {
     background: transparent;
     border: 1.5px dashed var(--ink-faint);
-  }
-  .legend-hint {
-    color: var(--ink-faint);
   }
   @keyframes key-breathe {
     0%,
@@ -676,17 +670,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     #domain-panel[data-open] .panel-body {
       display: grid;
       margin-top: var(--space-2);
-    }
-    .legend {
-      left: auto;
-      right: var(--space-4);
-      justify-content: flex-end;
-      max-width: 55%;
-      bottom: auto;
-      top: var(--space-3);
-    }
-    .legend-hint {
-      display: none;
     }
   }
 </style>
