@@ -2,6 +2,7 @@
 title: Live Stream Monitoring
 tagline: A Django platform watching a dozen live broadcast streams at once.
 scale: 3
+org: Turner Broadcasting
 status: retired
 domain: media
 tags: [infra, apps]

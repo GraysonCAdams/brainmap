@@ -2,6 +2,7 @@
 title: Service Desk Integration
 tagline: Two ticketing systems and two chat platforms, made to talk to each other.
 scale: 2
+org: Turner Broadcasting
 status: retired
 domain: workflows
 tags: [apps]

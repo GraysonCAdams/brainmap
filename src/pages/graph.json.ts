@@ -47,6 +47,7 @@ export const GET: APIRoute = async () => {
       ...base,
       started: n.data.started.toISOString().slice(0, 10),
       ended: n.data.ended ? n.data.ended.toISOString().slice(0, 10) : null,
+      org: n.data.org ?? null,
       repo: n.data.repo ?? null,
       tech: n.data.tech,
       scale: n.data.scale,

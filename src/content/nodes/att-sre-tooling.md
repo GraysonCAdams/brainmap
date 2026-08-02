@@ -2,6 +2,7 @@
 title: Outage Tooling
 tagline: Automated outage intake and on-call alerting, leading the team that built it.
 scale: 3
+org: AT&T
 status: retired
 domain: workflows
 tags: [infra]

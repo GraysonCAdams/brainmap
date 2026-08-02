@@ -5,8 +5,8 @@ scale: 2
 status: retired
 domain: apps
 tags: []
-started: 2000-06-01
-ended: 2004-01-01
+started: 2004-01-01
+ended: 2005-12-31
 links: [graysonadams-dot-com]
 tech: [html, dreamweaver, flash]
 ---

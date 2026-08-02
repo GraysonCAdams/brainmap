@@ -2,6 +2,7 @@
 title: Student Media Websites
 tagline: Running the web presence for a university's newspaper and radio station.
 scale: 2
+org: KSU Student Media
 status: retired
 domain: apps
 tags: [workflows, media]

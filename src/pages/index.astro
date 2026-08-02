@@ -35,7 +35,9 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
 
     <!-- cursor-following hover tooltip -->
     <div id="map-tip" class="data" hidden>
+      <p class="tip-org data"></p>
       <p class="tip-title"></p>
+      <p class="tip-when data"></p>
       <p class="tip-text"></p>
       <p class="tip-tech"></p>
     </div>
@@ -202,6 +204,29 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     font-size: var(--text-xs);
   }
   #map-tip[hidden] {
+    display: none;
+  }
+  /* Eyebrow: whose work this was. Sits above the title in the same optical
+     slot a kicker would, dimmer than the title so it labels without competing. */
+  .tip-org {
+    margin: 0 0 2px;
+    font-size: var(--text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .tip-org[hidden] {
+    display: none;
+  }
+  /* Dates are data, so tabular figures: the range must not reflow as the
+     tooltip moves between nodes of different years. */
+  .tip-when {
+    margin: 2px 0 0;
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .tip-when[hidden] {
     display: none;
   }
   .tip-title {

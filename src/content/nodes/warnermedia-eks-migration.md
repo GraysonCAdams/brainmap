@@ -2,6 +2,7 @@
 title: Live Streaming to EKS
 tagline: Migrating an entire production streaming workload onto managed Kubernetes.
 scale: 4
+org: WarnerMedia
 status: retired
 domain: infra
 started: 2019-06-01

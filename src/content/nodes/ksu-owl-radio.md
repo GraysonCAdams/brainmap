@@ -2,6 +2,7 @@
 title: Owl Radio Streaming
 tagline: Brought a college radio station's stream in-house and cut its cost by 95%.
 scale: 3
+org: KSU Student Media
 status: retired
 domain: media
 tags: [infra]

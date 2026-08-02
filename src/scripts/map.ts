@@ -35,6 +35,7 @@ interface GraphNode extends SimulationNodeDatum {
   visibility: 'public' | 'teaser';
   started?: string;
   ended?: string | null;
+  org?: string | null;
   repo?: string | null;
   tech?: string[];
   scale?: number;
@@ -156,6 +157,18 @@ async function init(root: HTMLElement) {
     });
 
   let transform: ZoomTransform = zoomIdentity.translate(width / 2, height / 2);
+  // Panning is bounded to the world the layout actually occupies plus a margin.
+  // Without this you can drag the entire graph off-screen and be left staring
+  // at empty ground with no way back except the reset button, which is a dead
+  // end a first-time visitor has no reason to look for.
+  // Recomputed on resize because d3 clamps translation against the viewport.
+  const WORLD = 1100;
+  const applyExtent = () => {
+    zoomer.translateExtent([
+      [-WORLD, -WORLD],
+      [WORLD, WORLD],
+    ]);
+  };
   const zoomer = zoom<HTMLCanvasElement, unknown>()
     .scaleExtent([0.35, 3.5])
     .on('zoom', (ev) => {
@@ -164,6 +177,7 @@ async function init(root: HTMLElement) {
     .on('start', () => (canvas.style.cursor = 'grabbing'))
     .on('end', () => (canvas.style.cursor = 'grab'));
   const sel = select(canvas);
+  applyExtent();
   sel.call(zoomer);
   sel.call(zoomer.transform, transform);
 
@@ -235,7 +249,10 @@ async function init(root: HTMLElement) {
 
   // ---- Time engine: focus year + stretchable relevance window.
   const YEAR = 365.25 * 86400 * 1000;
-  const T0 = Date.UTC(2000, 0, 1); // when he started coding
+  // Left edge of time: the year the site first existed. Nothing on the map
+  // predates it, and an empty lead-in reads as missing data rather than as
+  // a beginning.
+  const T0 = Date.UTC(2003, 0, 1);
   const NOW = Date.now();
   const DEFAULT_BEHIND = 4 * YEAR;
   const DEFAULT_AHEAD = 4 * YEAR;
@@ -301,7 +318,8 @@ async function init(root: HTMLElement) {
     tl.region.style.width = `${r - l}%`;
   };
   // tick marks every 5 years
-  for (let y = 2000; y <= new Date(NOW).getUTCFullYear(); y += 5) {
+  const tickFrom = Math.ceil(new Date(T0).getUTCFullYear() / 5) * 5;
+  for (let y = tickFrom; y <= new Date(NOW).getUTCFullYear(); y += 5) {
     const t = Date.UTC(y, 0, 1);
     const tick = document.createElement('span');
     tick.className = 'tick';
@@ -521,11 +539,30 @@ async function init(root: HTMLElement) {
 
   // ---- Hover tooltip: follows the cursor while over a dot.
   const tip = document.getElementById('map-tip') as HTMLElement;
+  const tipOrg = tip.querySelector('.tip-org') as HTMLElement;
   const tipTitle = tip.querySelector('.tip-title') as HTMLElement;
+  const tipWhen = tip.querySelector('.tip-when') as HTMLElement;
   const tipText = tip.querySelector('.tip-text') as HTMLElement;
   const tipTech = tip.querySelector('.tip-tech') as HTMLElement;
+  const yearOf = (d?: string | null) => (d ? d.slice(0, 4) : null);
+  // "2019 - 2021", "2024 - present", or a single year when it began and ended
+  // in the same one. Teasers carry no dates at all.
+  const rangeOf = (n: GraphNode) => {
+    const a = yearOf(n.started);
+    if (!a) return '';
+    const b = yearOf(n.ended);
+    if (!b) return `${a} - present`;
+    return a === b ? a : `${a} - ${b}`;
+  };
   const showTip = (n: GraphNode, px: number, py: number) => {
+    // Employer work is labelled above the title so it is never read as a
+    // side project; personal work simply has no line here.
+    tipOrg.textContent = n.org ?? '';
+    tipOrg.hidden = !n.org;
     tipTitle.textContent = n.title;
+    const when = rangeOf(n);
+    tipWhen.textContent = when;
+    tipWhen.hidden = !when;
     tipText.textContent = n.visibility === 'teaser' ? 'In stealth. This one stays locked.' : n.tagline;
     tipTech.textContent = n.tech?.length ? n.tech.join(' · ') : '';
     tipTech.hidden = !n.tech?.length;

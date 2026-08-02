@@ -2,6 +2,7 @@
 title: Voicemail Portal
 tagline: A Node.js portal for voicemail and directory, built during a co-op.
 scale: 2
+org: Cox Communications
 status: retired
 domain: apps
 tags: [utilities]

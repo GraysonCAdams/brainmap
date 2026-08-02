@@ -2,6 +2,7 @@
 title: Workspace ONE Migrations
 tagline: Moving federal and corporate fleets onto a new device-management platform.
 scale: 2
+org: VMware
 status: retired
 domain: infra
 tags: [workflows]

@@ -2,6 +2,7 @@
 title: On-Prem to Azure Migrations
 tagline: Million-dollar migrations where the architecture and the budget were the same problem.
 scale: 4
+org: AT&T
 status: retired
 domain: infra
 started: 2021-07-01

@@ -5,7 +5,7 @@ scale: 2
 status: retired
 domain: media
 tags: [apps, infra]
-started: 2002-09-01
+started: 2003-01-01
 ended: 2020-08-01
 links: [learned-to-code, gtotechnology, joinlobbies, freelance-web]
 tech: [html, flash, php, mysql, wordpress]

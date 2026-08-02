@@ -45,6 +45,12 @@ const nodes = defineCollection({
      * home on the map); tags make the node match additional domain filters.
      */
     tags: z.array(z.enum(DOMAINS)).default([]),
+    /**
+     * The company this was built for, when it was not personal work.
+     * Surfaces above the title in the map tooltip so employer projects are
+     * never mistaken for side projects. Omit for personal work.
+     */
+    org: z.string().optional(),
     /** owner/repo on GitHub; drives build-time freshness enrichment */
     repo: z
       .string()

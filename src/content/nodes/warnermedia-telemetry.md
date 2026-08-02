@@ -2,6 +2,7 @@
 title: Telemetry Pipeline
 tagline: A Python service shipping 120+ million metrics into three observability backends.
 scale: 3
+org: WarnerMedia
 status: retired
 domain: infra
 tags: [utilities]
