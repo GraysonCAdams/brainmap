@@ -29,6 +29,8 @@ First a push notification marked critical, which on iOS is the class that overri
 
 The whole thing hangs off a manual kill switch, because I was not always on call. A pager that alerts you during weeks you are not responsible is one you train yourself to ignore, and then it is worthless during the week you are.
 
+It also refuses to fire outside my actual on-call hours, which did not include the small hours of the morning. That looks wrong at first glance, since a pager that sleeps is a contradiction, but the rotation genuinely did not cover that window and someone else's did. Encoding the real boundary of my responsibility into the automation is the same decision as the kill switch, one step finer: an alert I am not the right person to answer is not an alert, it is an interruption.
+
 The spoken message pulls the sender's address out of the raw `Name <address>` header rather than reading the whole string, because hearing a display name and an address read aloud in sequence at 3am is noise, and the address was the part that told me which system was unhappy.
 
 The part I am still proudest of is not the pager, it is the watchdog on the pager. Two more automations track whether the mail watcher itself is online. If it drops, that pages me. If it recovers, the recovery message does not just say "back online", it tells me whether the kill switch is currently on or off. After an outage the dangerous state is not the system being down, it is the system being up while silently muted, and believing you are covered when you are not is worse than knowing you are not.
