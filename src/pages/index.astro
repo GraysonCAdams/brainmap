@@ -1,243 +1,282 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
-import Lamp from '../components/Lamp.astro';
 import { SITE } from '../site.config';
-import { STATUSES, DOMAINS } from '../content.config';
-
-const nodes = (await getCollection('nodes', (n) => n.data.visibility === 'public')).sort(
-  (a, b) => b.data.started.valueOf() - a.data.started.valueOf(),
-);
-const featured = nodes
-  .filter((n) => n.data.featured)
-  .sort((a, b) => a.data.featured! - b.data.featured!);
-const fmt = (d: Date) => d.toISOString().slice(0, 7);
 ---
 
 <Base>
   <Header />
   <main>
-    <section class="intro">
-      <h1>Ideas, and what became of them.</h1>
-      <p>
-        I'm {SITE.name}, a DevOps engineer who can't stop building things. This is a live map of
-        the ideas I've had, the ones I shipped, and how I actually think through a problem: the
-        constraints, the edge cases, the tradeoffs. <a href="/map">See it as a map</a>, or start
-        below.
-      </p>
-    </section>
+    <div id="map-root">
+      <noscript>
+        The map needs JavaScript. Everything on it is also in <a href="/bio">the bio</a>.
+      </noscript>
+    </div>
 
-    {
-      featured.length > 0 && (
-        <section class="start-here">
-          <h2 class="data">start here</h2>
-          <ol>
-            {featured.map((n) => (
-              <li>
-                <a href={`/idea/${n.id}`}>{n.data.title}</a>
-                <span class="tagline">{n.data.tagline}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )
-    }
+    <aside id="map-card" hidden>
+      <button class="card-close data" aria-label="Close">esc</button>
+      <p class="card-meta data"></p>
+      <h2 class="card-title"></h2>
+      <p class="card-tagline"></p>
+      <a class="card-link" href="/">read the full story &rarr;</a>
+    </aside>
 
-    <section class="log">
-      <div class="filters data" role="group" aria-label="Filter the log">
-        {STATUSES.map((s) => <button class="chip" data-filter-status={s}>{s}</button>)}
-        <span class="filter-sep" aria-hidden="true"></span>
-        {DOMAINS.map((d) => <button class="chip" data-filter-domain={d}>{d}</button>)}
-      </div>
+    <!-- whoami modal: first-visit overview, dismissable, remembered -->
+    <div id="intro" class="intro-backdrop" hidden>
+      <section class="intro-modal" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+        <p id="intro-title" class="data intro-cmd"><span class="prompt">$</span> whoami</p>
+        <p class="intro-name data">{SITE.name}</p>
+        <p class="intro-text">
+          Lead DevOps engineer who can't stop building things. Every dot on this map is an idea I
+          had; the bright ones shipped. Click any of them to see how I actually think through a
+          problem: constraints, edge cases, tradeoffs.
+        </p>
+        <div class="intro-actions data">
+          <button id="intro-close" autofocus>[ explore the map ]</button>
+          <a href="/bio">./bio</a>
+          <a href="/resume">./resume</a>
+        </div>
+      </section>
+    </div>
 
-      <table>
-        <thead class="data">
-          <tr>
-            <th></th>
-            <th>idea</th>
-            <th class="col-tagline">what it is</th>
-            <th>domain</th>
-            <th>since</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            nodes.map((n) => (
-              <tr data-status={n.data.status} data-domain={n.data.domain}>
-                <td class="col-lamp">
-                  <Lamp domain={n.data.domain} status={n.data.status} />
-                </td>
-                <td class="col-title">
-                  <a href={`/idea/${n.id}`}>{n.data.title}</a>
-                </td>
-                <td class="col-tagline">{n.data.tagline}</td>
-                <td class="data col-domain">{n.data.domain}</td>
-                <td class="data col-date">{fmt(n.data.started)}</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </section>
+    <footer class="legend data" aria-label="How to read the map">
+      <span><i class="key key-idea"></i>idea</span>
+      <span><i class="key key-building"></i>building</span>
+      <span><i class="key key-shipped"></i>shipped</span>
+      <span><i class="key key-retired"></i>retired</span>
+      <span><i class="key key-teaser"></i>in stealth</span>
+      <span class="legend-hint">color = domain · drag to pan · pinch or scroll to zoom</span>
+    </footer>
   </main>
-  <Footer />
 </Base>
 
+<script src="../scripts/map.ts"></script>
+
 <script>
-  // Filter chips: multiple selections union within a facet, intersect across
-  // facets. No selection in a facet = facet inactive.
-  const chips = [...document.querySelectorAll<HTMLButtonElement>('.chip')];
-  const rows = [...document.querySelectorAll<HTMLTableRowElement>('tbody tr')];
-  const apply = () => {
-    const on = (attr: string) =>
-      chips.filter((c) => c.hasAttribute(attr) && c.ariaPressed === 'true').map((c) => c.getAttribute(attr));
-    const statuses = on('data-filter-status');
-    const domains = on('data-filter-domain');
-    for (const r of rows) {
-      const okS = statuses.length === 0 || statuses.includes(r.dataset.status ?? '');
-      const okD = domains.length === 0 || domains.includes(r.dataset.domain ?? '');
-      r.hidden = !(okS && okD);
-    }
+  // Intro modal: show until dismissed once on this device.
+  const KEY = 'brainmap-intro-dismissed';
+  const backdrop = document.getElementById('intro') as HTMLElement;
+  const close = () => {
+    backdrop.hidden = true;
+    localStorage.setItem(KEY, '1');
   };
-  for (const c of chips) {
-    c.ariaPressed = 'false';
-    c.addEventListener('click', () => {
-      c.ariaPressed = c.ariaPressed === 'true' ? 'false' : 'true';
-      apply();
-    });
+  if (!localStorage.getItem(KEY)) {
+    backdrop.hidden = false;
+    document.getElementById('intro-close')?.focus();
   }
+  document.getElementById('intro-close')?.addEventListener('click', close);
+  backdrop.addEventListener('click', (ev) => {
+    if (ev.target === backdrop) close();
+  });
+  addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !backdrop.hidden) close();
+  });
 </script>
 
 <style>
-  main {
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 0 var(--space-4) var(--space-12);
-  }
-  .intro {
-    padding: var(--space-12) 0 var(--space-8);
-    max-width: var(--measure);
-  }
-  .intro h1 {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    font-weight: 400;
-  }
-  .intro p {
-    color: var(--ink-dim);
-    margin: var(--space-4) 0 0;
-  }
-  .intro a {
-    color: var(--ink);
-  }
-
-  h2.data {
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    color: var(--ink-faint);
-    text-transform: lowercase;
-  }
-
-  .start-here {
-    border-top: 1px solid var(--line);
-    padding: var(--space-3) 0 var(--space-6);
-  }
-  .start-here ol {
-    margin: var(--space-3) 0 0;
-    padding: 0 0 0 1.4rem;
-    display: grid;
-    gap: var(--space-2);
-  }
-  .start-here li::marker {
-    font-family: var(--font-data);
-    font-size: var(--text-sm);
-    color: var(--ink-faint);
-  }
-  .start-here .tagline {
-    color: var(--ink-faint);
-    margin-left: var(--space-2);
-    font-size: var(--text-sm);
-  }
-
-  .log {
-    border-top: 1px solid var(--line);
-    padding-top: var(--space-3);
-  }
-  .filters {
+  /* The map page owns the viewport: no document scroll, main fills the rest. */
+  :global(body) {
+    overflow: hidden;
+    height: 100dvh;
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
-    margin-bottom: var(--space-4);
+    flex-direction: column;
   }
-  .filter-sep {
-    width: 1px;
-    height: 14px;
-    background: var(--line);
+  main {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    /* graph-paper texture: map surface only, per DESIGN.md */
+    background-image:
+      linear-gradient(var(--line-faint) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-faint) 1px, transparent 1px);
+    background-size: 44px 44px;
   }
-  .chip {
+  #map-root {
+    position: absolute;
+    inset: 0;
+    color: var(--ink-faint);
+    font-size: var(--text-sm);
+  }
+  noscript {
+    display: grid;
+    place-items: center;
+    height: 100%;
+  }
+
+  #map-card {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    width: min(22rem, calc(100% - 2rem));
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-top: 2px solid var(--lamp, var(--line));
+    border-radius: var(--radius-chip);
+    padding: var(--space-4);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  }
+  .card-close {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
     font: inherit;
     font-size: var(--text-xs);
-    color: var(--ink-dim);
+    color: var(--ink-faint);
     background: none;
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 2px 8px;
+    padding: 1px 6px;
     cursor: pointer;
   }
-  .chip:hover {
+  .card-close:hover {
     color: var(--ink);
-    border-color: var(--ink-faint);
   }
-  .chip[aria-pressed='true'] {
-    color: var(--ground);
-    background: var(--ink);
-    border-color: var(--ink);
+  .card-meta {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    margin: 0 0 var(--space-2);
+    padding-right: var(--space-8);
   }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
+  .card-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+  .card-tagline {
+    color: var(--ink-dim);
+    font-size: var(--text-sm);
+    margin: var(--space-2) 0 var(--space-3);
+  }
+  .card-link {
     font-size: var(--text-sm);
   }
-  thead th {
-    text-align: left;
-    font-size: var(--text-xs);
-    font-weight: 400;
-    color: var(--ink-faint);
-    padding: var(--space-2) var(--space-3) var(--space-2) 0;
-    border-bottom: 1px solid var(--line);
+
+  .intro-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(6 10 11 / 0.72);
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    z-index: 10;
   }
-  td {
-    padding: var(--space-3) var(--space-3) var(--space-3) 0;
-    border-bottom: 1px solid var(--line-faint);
-    vertical-align: baseline;
+  .intro-modal {
+    width: min(27rem, 100%);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-6);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.55);
   }
-  .col-lamp {
-    width: 1.2rem;
+  .intro-cmd {
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    margin: 0;
   }
-  .col-title a {
+  .intro-cmd .prompt {
+    color: var(--lamp-finance);
+  }
+  .intro-name {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin: var(--space-2) 0 var(--space-3);
+  }
+  .intro-text {
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    margin: 0 0 var(--space-4);
+  }
+  .intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: baseline;
+    font-size: var(--text-sm);
+  }
+  .intro-actions button {
+    font: inherit;
+    color: var(--ground);
+    background: var(--ink);
+    border: none;
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+  }
+  .intro-actions button:hover {
+    opacity: 0.88;
+  }
+  .intro-actions a {
+    color: var(--ink-dim);
     text-decoration: none;
-    font-weight: 500;
   }
-  .col-title a:hover {
+  .intro-actions a:hover {
+    color: var(--ink);
     text-decoration: underline;
   }
-  .col-tagline {
-    color: var(--ink-dim);
-  }
-  .col-domain,
-  .col-date {
-    color: var(--ink-faint);
+
+  .legend {
+    position: absolute;
+    left: var(--space-4);
+    bottom: var(--space-4);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
     font-size: var(--text-xs);
-    white-space: nowrap;
+    color: var(--ink-dim);
+    pointer-events: none;
+  }
+  .key {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+    background: var(--ink-dim);
+    vertical-align: -1px;
+  }
+  .key-idea {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--ink-dim);
+  }
+  .key-building {
+    animation: key-breathe 2.4s ease-in-out infinite;
+  }
+  .key-shipped {
+    box-shadow: 0 0 5px var(--ink-dim);
+  }
+  .key-retired {
+    opacity: var(--retired-dim);
+  }
+  .key-teaser {
+    background: transparent;
+    border: 1.5px dashed var(--ink-faint);
+  }
+  .legend-hint {
+    color: var(--ink-faint);
+  }
+  @keyframes key-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
   }
 
   @media (max-width: 640px) {
-    .col-tagline {
+    #map-card {
+      left: var(--space-4);
+      right: var(--space-4);
+      width: auto;
+    }
+    .legend {
+      bottom: auto;
+      top: var(--space-3);
+    }
+    .legend-hint {
       display: none;
     }
   }

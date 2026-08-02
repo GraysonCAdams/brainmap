@@ -1,14 +1,18 @@
 ---
-import { SITE } from '../site.config';
 const path = Astro.url.pathname;
-const isMap = path === '/map';
+const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefined);
 ---
 
-<header>
-  <a class="wordmark" href="/">{SITE.name}<span class="tilde">&nbsp;/&nbsp;</span><em>brain map</em></a>
-  <nav class="data">
-    <a href="/" aria-current={!isMap ? 'page' : undefined}>log</a>
-    <a href="/map" aria-current={isMap ? 'page' : undefined}>map</a>
+<header class="data">
+  <a class="wordmark" href="/"
+    ><span class="user">gray</span><span class="at">@</span><span class="host">brainmap</span><span class="path">:~$</span><span
+      class="cursor"
+      aria-hidden="true"></span></a
+  >
+  <nav>
+    <a href="/bio" aria-current={current('/bio')}>bio</a>
+    <a href="/resume" aria-current={current('/resume')}>resume</a>
+    <a href="/contact" aria-current={current('/contact')}>contact</a>
   </nav>
 </header>
 
@@ -18,31 +22,38 @@ const isMap = path === '/map';
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-4);
-    padding: var(--space-4) var(--space-4) var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--line);
-    max-width: 72rem;
-    margin: 0 auto;
+    font-size: var(--text-sm);
   }
   .wordmark {
     text-decoration: none;
-    font-size: var(--text-base);
+    white-space: nowrap;
   }
-  .wordmark em {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--text-lg);
+  .user {
+    color: var(--lamp-finance);
   }
-  .tilde {
+  .at,
+  .path {
     color: var(--ink-faint);
+  }
+  .host {
+    color: var(--ink);
+  }
+  .wordmark .cursor {
+    margin-left: 2px;
   }
   nav {
     display: flex;
     gap: var(--space-4);
-    font-size: var(--text-sm);
   }
   nav a {
     text-decoration: none;
     color: var(--ink-dim);
+  }
+  nav a::before {
+    content: './';
+    color: var(--ink-faint);
   }
   nav a:hover {
     color: var(--ink);

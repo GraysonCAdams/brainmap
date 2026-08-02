@@ -26,6 +26,7 @@ export const GET: APIRoute = async ({ site }) => {
     '',
     '## Other',
     '',
+    `- [Bio and full project log](${base}/bio)`,
     `- [Colophon: how this site is made, and its license](${base}/colophon)`,
   ];
   return new Response(lines.join('\n') + '\n', {

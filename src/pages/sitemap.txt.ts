@@ -6,7 +6,7 @@ export const GET: APIRoute = async ({ site }) => {
   const nodes = await getCollection('nodes', (n) => n.data.visibility === 'public');
   const urls = [
     `${base}/`,
-    `${base}/map`,
+    `${base}/bio`,
     `${base}/colophon`,
     `${base}/contact`,
     `${base}/resume`,

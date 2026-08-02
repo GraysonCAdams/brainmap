@@ -8,6 +8,10 @@ const site = process.env.SITE_URL || 'https://brainmap.pages.dev';
 export default defineConfig({
   site,
   trailingSlash: 'never',
+  // The map moved from /map to the landing page; keep old links working.
+  redirects: {
+    '/map': '/',
+  },
   build: {
     format: 'file',
   },
