@@ -1,0 +1,216 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Lamp from '../components/Lamp.astro';
+
+const nodes = (await getCollection('nodes', (n) => n.data.visibility === 'public')).sort(
+  (a, b) => b.data.started.valueOf() - a.data.started.valueOf(),
+);
+const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
+---
+
+<Base
+  title="Tailored resume"
+  description="Pick the projects you care about and download a resume tailored to them."
+>
+  <Header />
+  <main>
+    <h1>Build me a resume</h1>
+    <p class="lede">
+      Hiring, and curious about specific things I've built? Pick up to six projects and I'll
+      generate a one-page resume emphasizing them, in my real resume's format. The text is tailored
+      by Claude from the write-ups on this site; it never invents facts.
+      <span class="data">Shared limit: 5 generations per day, on my dime.</span>
+    </p>
+
+    <form id="resume-form">
+      <fieldset>
+        <legend class="data">projects to emphasize (1-6)</legend>
+        <ul>
+          {
+            nodes.map((n) => (
+              <li>
+                <label>
+                  <input type="checkbox" name="slug" value={n.id} />
+                  <Lamp domain={n.data.domain} status={n.data.status} />
+                  <span class="title">{n.data.title}</span>
+                  <span class="tagline">{n.data.tagline}</span>
+                </label>
+              </li>
+            ))
+          }
+        </ul>
+      </fieldset>
+
+      <label class="interest">
+        <span class="data">what are you hiring for? (optional, helps the tailoring)</span>
+        <input name="interest" maxlength="500" placeholder="e.g. platform engineering lead, K8s + IaC heavy" />
+      </label>
+
+      {sitekey && <div class="cf-turnstile" data-sitekey={sitekey} data-theme="dark" />}
+      <button type="submit">Generate resume PDF</button>
+      <p class="status data" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+  <Footer />
+</Base>
+
+{sitekey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+
+<script>
+  const form = document.getElementById('resume-form') as HTMLFormElement;
+  const status = form.querySelector('.status') as HTMLElement;
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const slugs = [...form.querySelectorAll<HTMLInputElement>('input[name=slug]:checked')].map(
+      (i) => i.value,
+    );
+    if (slugs.length === 0 || slugs.length > 6) {
+      status.textContent = 'Pick between 1 and 6 projects.';
+      return;
+    }
+    const turnstileToken =
+      form.querySelector<HTMLInputElement>('[name=cf-turnstile-response]')?.value ?? '';
+    const interest = (form.elements.namedItem('interest') as HTMLInputElement).value;
+
+    status.textContent = 'Generating (this can take ~30 seconds)…';
+    try {
+      const res = await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slugs, interest, turnstileToken }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        status.textContent = body.error ?? 'Generation failed.';
+        return;
+      }
+      status.textContent = 'Rendering PDF…';
+      // pdf-lib is heavy; load it only when someone actually generates
+      const { buildResumePdf } = await import('../scripts/resume-pdf');
+      const bytes = await buildResumePdf(body.result);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Grayson Adams - Resume.pdf';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      status.textContent =
+        body.remainingToday !== undefined
+          ? `Done: check your downloads. ${body.remainingToday} generation${body.remainingToday === 1 ? '' : 's'} left today.`
+          : 'Done: check your downloads.';
+    } catch {
+      status.textContent = 'Network error. Try again, or just email me.';
+    }
+  });
+</script>
+
+<style>
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 400;
+  }
+  .lede {
+    color: var(--ink-dim);
+    margin: var(--space-2) 0 var(--space-6);
+  }
+  .lede .data {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+  }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-3) var(--space-4);
+    margin: 0 0 var(--space-4);
+  }
+  legend {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    padding: 0 var(--space-2);
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+  label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    cursor: pointer;
+  }
+  input[type='checkbox'] {
+    accent-color: var(--ink);
+  }
+  .title {
+    font-weight: 500;
+    font-size: var(--text-sm);
+  }
+  .tagline {
+    color: var(--ink-faint);
+    font-size: var(--text-xs);
+  }
+  .interest {
+    display: grid;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+  }
+  .interest span {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+  }
+  .interest input {
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+  }
+  button {
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--ground);
+    background: var(--ink);
+    border: none;
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-4);
+    cursor: pointer;
+    margin-top: var(--space-3);
+  }
+  button:hover {
+    opacity: 0.88;
+  }
+  .status {
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    min-height: 1.2em;
+  }
+
+  @media (max-width: 640px) {
+    label {
+      flex-wrap: wrap;
+    }
+    .tagline {
+      flex-basis: 100%;
+      padding-left: 1.9rem;
+    }
+  }
+</style>

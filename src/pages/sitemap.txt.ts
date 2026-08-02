@@ -9,6 +9,7 @@ export const GET: APIRoute = async ({ site }) => {
     `${base}/map`,
     `${base}/colophon`,
     `${base}/contact`,
+    `${base}/resume`,
     ...nodes.map((n) => `${base}/idea/${n.id}`),
   ];
   return new Response(urls.join('\n') + '\n', {
