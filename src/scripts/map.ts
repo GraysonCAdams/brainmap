@@ -118,9 +118,11 @@ async function init(root: HTMLElement) {
   const NODE_GAP = 9;
   const BOUNDARY_PAD = 26;
   const PACK = 0.62;
+  // Members are free bodies only; a parent contributes its whole footprint,
+  // since the space its satellites take up is space the cluster must hold.
   const clusterRadius = (members: GraphNode[]) => {
     if (!members.length) return 0;
-    const avg = members.reduce((sum, n) => sum + radiusOf(n), 0) / members.length;
+    const avg = members.reduce((sum, n) => sum + footprintOf(n), 0) / members.length;
     return BOUNDARY_PAD + Math.sqrt(members.length / PACK) * (avg + NODE_GAP);
   };
 
@@ -136,72 +138,84 @@ async function init(root: HTMLElement) {
   }
   const isChild = (n: GraphNode) => Boolean(n.parent && byId.has(n.parent));
 
-  // Orbit radius is pinned to the floor the collision force allows, so the
-  // ring is as tight as the layout physically permits and the two forces
-  // agree instead of fighting. Many children widen it just enough that they
-  // fit side by side around the circumference rather than stacking.
+  // Satellites are NOT simulation bodies. They are drawn at a fixed offset
+  // from their parent every tick.
+  //
+  // The first attempt made them ordinary nodes with an orbit force, and it
+  // failed for a reason worth recording: collision spacing between unrelated
+  // nodes is radius+11 each, so any two dots sit at least ~41px apart, and an
+  // orbit that respects collision lands at ~45. A child ended up FARTHER from
+  // its parent than a stranger was, which is not a weak grouping cue, it is
+  // an inverted one. Containment only reads if the gap inside a system is
+  // clearly smaller than the gap between systems, and no arrangement of forces
+  // that treats children as peers can produce that.
+  const CHILD_GAP = 6;
   const orbitRadius = (p: GraphNode, kids: GraphNode[]) => {
     const widest = Math.max(...kids.map(radiusOf));
-    const floor = radiusOf(p) + widest + 24;
-    const circumference = (kids.length * (2 * widest + 16)) / (2 * Math.PI);
-    return Math.max(floor, circumference);
+    const snug = radiusOf(p) + widest + CHILD_GAP;
+    // With enough satellites the ring has to grow or they overlap each other.
+    const circumference = (kids.length * (2 * widest + CHILD_GAP)) / (2 * Math.PI);
+    return Math.max(snug, circumference);
   };
+  // The space a node actually occupies. A parent's footprint swallows the ring
+  // of satellites travelling with it, so the ambient layout treats the whole
+  // system as one body and no unrelated dot can drift into the gap between a
+  // parent and its children.
+  const footprintOf = (n: GraphNode) => {
+    const kids = childrenOf.get(n.id);
+    if (!kids?.length) return radiusOf(n);
+    return orbitRadius(n, kids) + Math.max(...kids.map(radiusOf));
+  };
+  const placeSatellites = () => {
+    for (const [pid, kids] of childrenOf) {
+      const p = byId.get(pid);
+      if (!p) continue;
+      const R = orbitRadius(p, kids);
+      // Fixed angular slots: stable across reloads, and a child appearing as
+      // the timeline reaches its year drops into the gap it always had rather
+      // than reshuffling the siblings already placed.
+      kids.forEach((c, i) => {
+        const angle = (i / kids.length) * Math.PI * 2 - Math.PI / 2;
+        c.x = (p.x ?? 0) + Math.cos(angle) * R;
+        c.y = (p.y ?? 0) + Math.sin(angle) * R;
+        c.vx = 0;
+        c.vy = 0;
+      });
+    }
+  };
+
+  // Only free bodies are simulated. Edges touching a satellite are still
+  // drawn, they just exert no force, which is correct: a satellite's position
+  // is dictated by what it belongs to, not by what it references.
+  const simNodes = data.nodes.filter((n) => !isChild(n));
 
   // Tight round clumps: strong centroid gravity + modest repulsion means the
   // members themselves form the circle the boundary traces.
-  const edges: GraphEdge[] = data.edges.map((e) => ({ ...e }));
-  const sim = forceSimulation(data.nodes)
+  // Edge endpoints are resolved by hand so that satellite edges keep real node
+  // references even though forceLink never sees them.
+  const edges: GraphEdge[] = data.edges.map((e) => ({
+    ...e,
+    source: byId.get(e.source as unknown as string) ?? e.source,
+    target: byId.get(e.target as unknown as string) ?? e.target,
+  }));
+  const simEdges = edges.filter(
+    (e) => !isChild(e.source as GraphNode) && !isChild(e.target as GraphNode),
+  );
+  const sim = forceSimulation(simNodes)
     .force(
       'link',
-      forceLink<GraphNode, GraphEdge>(edges)
-        .id((n) => n.id)
-        // Containment is handled by the orbit force below; letting the link
-        // force also pull on the same pair would double the tension and drag
-        // the parent out of its cluster toward its own children.
-        .distance((e) => (e.kind === 'parent' ? 0 : 60))
-        .strength((e) => (e.kind === 'parent' ? 0 : 0.25)),
+      forceLink<GraphNode, GraphEdge>(simEdges).id((n) => n.id).distance(60).strength(0.25),
     )
     .force('charge', forceManyBody().strength(-90))
-    .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 11))
-    // Children are governed by their parent's live position, so their pull
-    // toward the domain centroid is almost switched off: it exists only to
-    // stop an orphaned child drifting if its parent is filtered away.
-    .force(
-      'x',
-      forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength((n) =>
-        isChild(n) ? 0.03 : 0.24,
-      ),
-    )
-    .force(
-      'y',
-      forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength((n) =>
-        isChild(n) ? 0.03 : 0.24,
-      ),
-    )
-    // Satellites. Each child gets a fixed angular slot so the arrangement is
-    // stable across reloads and across era changes: a child appearing as the
-    // timeline reaches it slots into the gap it always had, rather than
-    // reshuffling the ones already there.
-    .force('orbit', (alpha: number) => {
-      for (const [pid, kids] of childrenOf) {
-        const p = byId.get(pid);
-        if (!p) continue;
-        const R = orbitRadius(p, kids);
-        const k = Math.min(1, alpha * 9);
-        kids.forEach((c, i) => {
-          const angle = (i / kids.length) * Math.PI * 2 - Math.PI / 2;
-          const tx = (p.x ?? 0) + Math.cos(angle) * R;
-          const ty = (p.y ?? 0) + Math.sin(angle) * R;
-          c.vx = (c.vx ?? 0) + (tx - (c.x ?? 0)) * 0.4 * k;
-          c.vy = (c.vy ?? 0) + (ty - (c.y ?? 0)) * 0.4 * k;
-        });
-      }
-    })
+    // Footprint, not radius: a parent shoulders its satellites aside as one body.
+    .force('collide', forceCollide<GraphNode>((n) => footprintOf(n) + 11))
+    .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.24))
+    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24))
     // Keep every member inside its own count-sized circle. Without this the
     // ring would be a claim the layout does not honour.
     .force('contain', () => {
       for (const d of domains) {
-        const members = data.nodes.filter((n) => n.domain === d);
+        const members = simNodes.filter((n) => n.domain === d);
         if (!members.length) continue;
         const cx = members.reduce((sum, n) => sum + (n.x ?? 0), 0) / members.length;
         const cy = members.reduce((sum, n) => sum + (n.y ?? 0), 0) / members.length;
@@ -210,7 +224,9 @@ async function init(root: HTMLElement) {
           const dx = (n.x ?? 0) - cx;
           const dy = (n.y ?? 0) - cy;
           const dist = Math.hypot(dx, dy) || 1;
-          const maxD = Math.max(0, R - radiusOf(n) - 6);
+          // A parent must fit its whole system inside the boundary, not just
+          // its own dot, or its satellites hang outside the circle.
+          const maxD = Math.max(0, R - footprintOf(n) - 6);
           if (dist <= maxD) continue;
           const pull = ((dist - maxD) / dist) * 0.32;
           n.x = (n.x ?? 0) - dx * pull;
@@ -224,7 +240,7 @@ async function init(root: HTMLElement) {
       const GAP = 52;
       const clusters = domains
         .map((d) => {
-          const members = data.nodes.filter((n) => n.domain === d);
+          const members = simNodes.filter((n) => n.domain === d);
           if (members.length === 0) return null;
           const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
           const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
@@ -254,6 +270,11 @@ async function init(root: HTMLElement) {
         }
       }
     });
+
+  // Satellites ride along on every tick, and once more up front so they have
+  // positions before the first frame, the first hit test or the first camera fit.
+  sim.on('tick.satellites', placeSatellites);
+  placeSatellites();
 
   let transform: ZoomTransform = zoomIdentity.translate(width / 2, height / 2);
   // Panning is bounded to the world the layout actually occupies plus a margin.
@@ -978,7 +999,7 @@ async function init(root: HTMLElement) {
     // label breaking the stroke at the top like a fieldset legend.
     // Boundaries fade in/out instead of popping as eras change.
     for (const d of domains) {
-      const members = data.nodes.filter(
+      const members = simNodes.filter(
         (n) => n.domain === d && matchesFilter(n) && svOf(n) > 0.4,
       );
       const target = members.length >= 1 ? 1 : 0;
@@ -1030,26 +1051,39 @@ async function init(root: HTMLElement) {
     }
     ctx.globalAlpha = 1;
 
-    // Containment tethers: solid, short, in the cluster's own colour. Lineage
-    // is a dashed thread between two independent ideas; belonging to something
-    // is a different claim and gets a different mark, so the two are never
-    // read as the same relationship at a glance.
-    ctx.lineWidth = 1.25 / transform.k;
-    for (const e of edges) {
-      if (e.kind !== 'parent') continue;
-      const s = e.source as GraphNode;
-      const g = e.target as GraphNode;
-      const relEdge = Math.min(svOf(s), svOf(g));
-      if (relEdge < 0.03) continue;
-      const active = hovered === s || hovered === g;
-      const filtered = !matchesFilter(s) || !matchesFilter(g);
-      ctx.strokeStyle = lamp(g.domain);
-      ctx.globalAlpha = (filtered ? 0.06 : active ? 0.85 : 0.3) * relEdge;
+    // Satellite systems. A filled disc under the parent and its ring is what
+    // actually communicates "these are one thing"; the spokes alone read as
+    // just more edges. Drawn after the domain boundary and before everything
+    // else so it layers as a sub-region of the cluster it sits in.
+    for (const [pid, kids] of childrenOf) {
+      const p = byId.get(pid);
+      if (!p) continue;
+      const live = kids.filter((c) => svOf(c) > 0.05 && matchesFilter(c));
+      if (!live.length || svOf(p) < 0.05) continue;
+      const sysAlpha = Math.min(svOf(p), Math.max(...live.map(svOf)));
+      const active = hovered === p || live.includes(hovered as GraphNode);
+      const color = lamp(p.domain);
+      const R = orbitRadius(p, kids) + Math.max(...kids.map(radiusOf)) + 5;
+
       ctx.beginPath();
-      ctx.moveTo(s.x ?? 0, s.y ?? 0);
-      ctx.lineTo(g.x ?? 0, g.y ?? 0);
-      ctx.stroke();
+      ctx.arc(p.x ?? 0, p.y ?? 0, R, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = (active ? 0.1 : 0.055) * sysAlpha;
+      ctx.fill();
+
+      // Spokes, inside the disc. They point at the parent, which is the
+      // direction the relationship actually runs.
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1 / transform.k;
+      for (const c of live) {
+        ctx.globalAlpha = (active ? 0.55 : 0.22) * svOf(c);
+        ctx.beginPath();
+        ctx.moveTo(p.x ?? 0, p.y ?? 0);
+        ctx.lineTo(c.x ?? 0, c.y ?? 0);
+        ctx.stroke();
+      }
     }
+    ctx.globalAlpha = 1;
 
     // edges: dashed threads
     ctx.lineWidth = 1 / transform.k;
