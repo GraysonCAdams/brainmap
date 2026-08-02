@@ -1,0 +1,86 @@
+---
+import { SITE } from '../site.config';
+const year = new Date().getFullYear();
+---
+
+<footer>
+  {
+    SITE.openToOpportunities && (
+      <p class="banner">
+        Currently open to interesting DevOps / platform roles.
+        <a href="/contact">Get in touch</a>.
+      </p>
+    )
+  }
+  <div class="row">
+    <nav class="data">
+      <a href={`https://github.com/${SITE.github}`}>github</a>
+      {SITE.linkedin && <a href={`https://www.linkedin.com/in/${SITE.linkedin}`}>linkedin</a>}
+      <a
+        class="email"
+        href="/contact"
+        data-u={SITE.emailUser.split('').reverse().join('')}
+        data-d={SITE.emailDomain.split('').reverse().join('')}>email</a
+      >
+      <a href="/contact">contact</a>
+      <a href="/colophon">colophon</a>
+    </nav>
+    <p class="license data">
+      &copy; {year} {SITE.name}. Prose licensed CC BY-NC-ND 4.0; AI training use not permitted.
+    </p>
+  </div>
+</footer>
+
+<script>
+  // The address exists nowhere in the markup: fragments are stored reversed in
+  // data attributes and assembled here, so naive scrapers see only /contact.
+  const el = document.querySelector<HTMLAnchorElement>('a.email');
+  if (el?.dataset.u && el.dataset.d) {
+    const flip = (s: string) => s.split('').reverse().join('');
+    el.href = `mailto:${flip(el.dataset.u)}@${flip(el.dataset.d)}`;
+  }
+</script>
+
+<style>
+  footer {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-8);
+    border-top: 1px solid var(--line);
+  }
+  .banner {
+    font-size: var(--text-sm);
+    color: var(--ink);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--lamp-finance);
+    border-radius: var(--radius-chip);
+    padding: var(--space-3) var(--space-4);
+    margin: 0 0 var(--space-4);
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  nav {
+    display: flex;
+    gap: var(--space-4);
+    font-size: var(--text-xs);
+  }
+  nav a {
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  nav a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .license {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    margin: 0;
+  }
+</style>

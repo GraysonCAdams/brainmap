@@ -1,0 +1,74 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base title="Colophon" description="How this site is made, and on what terms.">
+  <Header />
+  <main>
+    <h1>Colophon</h1>
+
+    <section>
+      <h2 class="data">how it's made</h2>
+      <p>
+        Every idea here is a markdown file in a public repo; the filename is the node, the
+        frontmatter is the graph. Astro compiles them to plain static pages, and a single canvas
+        island draws the map with d3-force. There is no database, no framework runtime, and close
+        to no JavaScript outside the map itself.
+      </p>
+      <p>
+        I work with AI tooling heavily and openly, including on this site. The ideas, the
+        decisions, the taste, and the mistakes are mine; directing the tools well is part of the
+        craft I'm showing here. The git history is the receipts: every node is timestamped when it
+        was captured and revised.
+      </p>
+    </section>
+
+    <section>
+      <h2 class="data">for machines</h2>
+      <p>
+        Assistive AI reading on someone's behalf is welcome: <a href="/llms.txt">/llms.txt</a>
+        indexes clean markdown versions of every page. Training crawlers are disallowed in
+        robots.txt and blocked at the edge. That split is stated policy, and honestly, deterrence
+        rather than enforcement.
+      </p>
+    </section>
+
+    <section>
+      <h2 class="data">license</h2>
+      <p>
+        Prose and write-ups: <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/"
+          >CC BY-NC-ND 4.0</a
+        >. Use as AI training data is not permitted. Code in linked repositories carries its own
+        license per repo.
+      </p>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 400;
+  }
+  h2.data {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--line-faint);
+    padding-top: var(--space-3);
+    margin: var(--space-8) 0 var(--space-3);
+  }
+  p {
+    margin: 0 0 var(--space-4);
+  }
+</style>

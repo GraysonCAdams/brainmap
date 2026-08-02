@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 import Lamp from '../components/Lamp.astro';
 import { SITE } from '../site.config';
 import { STATUSES, DOMAINS } from '../content.config';
@@ -81,6 +82,7 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
       </table>
     </section>
   </main>
+  <Footer />
 </Base>
 
 <script>
