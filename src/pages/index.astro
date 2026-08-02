@@ -218,6 +218,14 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   .tip-org[hidden] {
     display: none;
   }
+  /* An employer is a proper noun and reads as a label in caps. "part of X" is
+     a sentence about a relationship, so it keeps sentence case and drops the
+     tracking; shouting it would give containment more weight than the title
+     underneath it. */
+  .tip-org.is-parent {
+    text-transform: none;
+    letter-spacing: 0;
+  }
   /* Dates are data, so tabular figures: the range must not reflow as the
      tooltip moves between nodes of different years. */
   .tip-when {

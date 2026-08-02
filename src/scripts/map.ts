@@ -33,6 +33,7 @@ interface GraphNode extends SimulationNodeDatum {
   domain: string;
   tags?: string[];
   visibility: 'public' | 'teaser';
+  parent?: string | null;
   started?: string;
   ended?: string | null;
   org?: string | null;
@@ -41,7 +42,7 @@ interface GraphNode extends SimulationNodeDatum {
   scale?: number;
   freshness?: number;
 }
-type GraphEdge = SimulationLinkDatum<GraphNode>;
+type GraphEdge = SimulationLinkDatum<GraphNode> & { kind?: 'parent' | 'link' };
 
 const root = document.getElementById('map-root');
 if (root) init(root).catch((err) => {
@@ -54,7 +55,7 @@ async function init(root: HTMLElement) {
   if (!res.ok) throw new Error(`graph.json ${res.status}`);
   const data: {
     nodes: GraphNode[];
-    edges: { source: string; target: string }[];
+    edges: { source: string; target: string; kind?: 'parent' | 'link' }[];
     domainLabels?: Record<string, string>;
   } = await res.json();
 
@@ -123,15 +124,79 @@ async function init(root: HTMLElement) {
     return BOUNDARY_PAD + Math.sqrt(members.length / PACK) * (avg + NODE_GAP);
   };
 
+  // Containment index. A node with `parent` is one facet of a bigger thing and
+  // orbits it instead of floating free in the domain cluster.
+  const byId = new Map(data.nodes.map((n) => [n.id, n]));
+  const childrenOf = new Map<string, GraphNode[]>();
+  for (const n of data.nodes) {
+    if (!n.parent || !byId.has(n.parent)) continue;
+    const list = childrenOf.get(n.parent);
+    if (list) list.push(n);
+    else childrenOf.set(n.parent, [n]);
+  }
+  const isChild = (n: GraphNode) => Boolean(n.parent && byId.has(n.parent));
+
+  // Orbit radius is pinned to the floor the collision force allows, so the
+  // ring is as tight as the layout physically permits and the two forces
+  // agree instead of fighting. Many children widen it just enough that they
+  // fit side by side around the circumference rather than stacking.
+  const orbitRadius = (p: GraphNode, kids: GraphNode[]) => {
+    const widest = Math.max(...kids.map(radiusOf));
+    const floor = radiusOf(p) + widest + 24;
+    const circumference = (kids.length * (2 * widest + 16)) / (2 * Math.PI);
+    return Math.max(floor, circumference);
+  };
+
   // Tight round clumps: strong centroid gravity + modest repulsion means the
   // members themselves form the circle the boundary traces.
   const edges: GraphEdge[] = data.edges.map((e) => ({ ...e }));
   const sim = forceSimulation(data.nodes)
-    .force('link', forceLink<GraphNode, GraphEdge>(edges).id((n) => n.id).distance(60).strength(0.25))
+    .force(
+      'link',
+      forceLink<GraphNode, GraphEdge>(edges)
+        .id((n) => n.id)
+        // Containment is handled by the orbit force below; letting the link
+        // force also pull on the same pair would double the tension and drag
+        // the parent out of its cluster toward its own children.
+        .distance((e) => (e.kind === 'parent' ? 0 : 60))
+        .strength((e) => (e.kind === 'parent' ? 0 : 0.25)),
+    )
     .force('charge', forceManyBody().strength(-90))
     .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 11))
-    .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.24))
-    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24))
+    // Children are governed by their parent's live position, so their pull
+    // toward the domain centroid is almost switched off: it exists only to
+    // stop an orphaned child drifting if its parent is filtered away.
+    .force(
+      'x',
+      forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength((n) =>
+        isChild(n) ? 0.03 : 0.24,
+      ),
+    )
+    .force(
+      'y',
+      forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength((n) =>
+        isChild(n) ? 0.03 : 0.24,
+      ),
+    )
+    // Satellites. Each child gets a fixed angular slot so the arrangement is
+    // stable across reloads and across era changes: a child appearing as the
+    // timeline reaches it slots into the gap it always had, rather than
+    // reshuffling the ones already there.
+    .force('orbit', (alpha: number) => {
+      for (const [pid, kids] of childrenOf) {
+        const p = byId.get(pid);
+        if (!p) continue;
+        const R = orbitRadius(p, kids);
+        const k = Math.min(1, alpha * 9);
+        kids.forEach((c, i) => {
+          const angle = (i / kids.length) * Math.PI * 2 - Math.PI / 2;
+          const tx = (p.x ?? 0) + Math.cos(angle) * R;
+          const ty = (p.y ?? 0) + Math.sin(angle) * R;
+          c.vx = (c.vx ?? 0) + (tx - (c.x ?? 0)) * 0.4 * k;
+          c.vy = (c.vy ?? 0) + (ty - (c.y ?? 0)) * 0.4 * k;
+        });
+      }
+    })
     // Keep every member inside its own count-sized circle. Without this the
     // ring would be a claim the layout does not honour.
     .force('contain', () => {
@@ -736,10 +801,16 @@ async function init(root: HTMLElement) {
     return a === b ? a : `${a} - ${b}`;
   };
   const showTip = (n: GraphNode, px: number, py: number) => {
-    // Employer work is labelled above the title so it is never read as a
-    // side project; personal work simply has no line here.
-    tipOrg.textContent = n.org ?? '';
-    tipOrg.hidden = !n.org;
+    // The eyebrow answers "whose is this?" It carries the employer when there
+    // is one, so employer work is never read as a side project, and otherwise
+    // the parent, so a satellite is never read as a standalone project. Both
+    // at once would be noise; an employer's own sub-project inherits the org
+    // from context and the parent is the more specific fact.
+    const owner = n.parent ? byId.get(n.parent) : undefined;
+    const eyebrow = owner ? `part of ${owner.title}` : (n.org ?? '');
+    tipOrg.textContent = eyebrow;
+    tipOrg.hidden = !eyebrow;
+    tipOrg.classList.toggle('is-parent', Boolean(owner));
     tipTitle.textContent = n.title;
     const when = rangeOf(n);
     tipWhen.textContent = when;
@@ -959,10 +1030,32 @@ async function init(root: HTMLElement) {
     }
     ctx.globalAlpha = 1;
 
+    // Containment tethers: solid, short, in the cluster's own colour. Lineage
+    // is a dashed thread between two independent ideas; belonging to something
+    // is a different claim and gets a different mark, so the two are never
+    // read as the same relationship at a glance.
+    ctx.lineWidth = 1.25 / transform.k;
+    for (const e of edges) {
+      if (e.kind !== 'parent') continue;
+      const s = e.source as GraphNode;
+      const g = e.target as GraphNode;
+      const relEdge = Math.min(svOf(s), svOf(g));
+      if (relEdge < 0.03) continue;
+      const active = hovered === s || hovered === g;
+      const filtered = !matchesFilter(s) || !matchesFilter(g);
+      ctx.strokeStyle = lamp(g.domain);
+      ctx.globalAlpha = (filtered ? 0.06 : active ? 0.85 : 0.3) * relEdge;
+      ctx.beginPath();
+      ctx.moveTo(s.x ?? 0, s.y ?? 0);
+      ctx.lineTo(g.x ?? 0, g.y ?? 0);
+      ctx.stroke();
+    }
+
     // edges: dashed threads
     ctx.lineWidth = 1 / transform.k;
     ctx.setLineDash([2 / transform.k, 4 / transform.k]);
     for (const e of edges) {
+      if (e.kind === 'parent') continue;
       const s = e.source as GraphNode;
       const g = e.target as GraphNode;
       const relEdge = Math.min(svOf(s), svOf(g));

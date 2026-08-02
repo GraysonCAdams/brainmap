@@ -26,11 +26,34 @@ export async function getStaticPaths() {
         domain: n.data.domain,
         teaser: n.data.visibility === 'teaser',
       }));
-    return { params: { slug: node.id }, props: { node, neighbors } };
+    // Containment is shown as its own relationship, not folded into the
+    // neighbourhood: "this is one part of that" and "these are related ideas"
+    // are different claims and a reader should not have to tell them apart.
+    const parent = node.data.parent
+      ? all.find((n) => n.id === node.data.parent)
+      : undefined;
+    const children = all
+      .filter((n) => n.data.parent === node.id && n.data.visibility === 'public')
+      .sort((a, b) => a.data.started.getTime() - b.data.started.getTime())
+      .map((n) => ({
+        id: n.id,
+        title: n.data.title,
+        tagline: n.data.tagline,
+        year: n.data.started.getUTCFullYear(),
+      }));
+    return {
+      params: { slug: node.id },
+      props: {
+        node,
+        neighbors,
+        children,
+        parent: parent ? { id: parent.id, title: parent.data.title } : null,
+      },
+    };
   });
 }
 
-const { node, neighbors } = Astro.props;
+const { node, neighbors, parent, children } = Astro.props;
 const { Content } = await render(node);
 const since = node.data.started.toISOString().slice(0, 10);
 
@@ -71,6 +94,13 @@ const lastActive =
             )
           }
         </p>
+        {
+          parent && (
+            <p class="up">
+              part of <a href={`/idea/${parent.id}`}>{parent.title}</a>
+            </p>
+          )
+        }
         <h1>{node.data.title}</h1>
         <p class="tagline">{node.data.tagline}</p>
         {
@@ -85,6 +115,25 @@ const lastActive =
       <div class="prose">
         <Content />
       </div>
+
+      {
+        children.length > 0 && (
+          <section class="parts">
+            <h2 class="data">written up separately</h2>
+            <ul>
+              {children.map((c) => (
+                <li>
+                  <a href={`/idea/${c.id}`}>
+                    <span class="part-year data">{c.year}</span>
+                    <span class="part-title">{c.title}</span>
+                    <span class="part-tagline">{c.tagline}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
     </article>
   </main>
   <Footer />
@@ -124,6 +173,63 @@ const lastActive =
     font-size: var(--text-xs);
     color: var(--ink-faint);
     margin: var(--space-3) 0 0;
+  }
+  .up {
+    font-size: var(--text-sm);
+    color: var(--ink-faint);
+    margin: 0 0 var(--space-1);
+  }
+  .up a {
+    color: var(--ink-dim);
+  }
+
+  /* The children of a node are its evidence, so they get the weight of a real
+     list rather than the chip treatment used for lateral links. */
+  .parts {
+    margin-top: var(--space-10);
+    border-top: 1px solid var(--line-faint);
+    padding-top: var(--space-3);
+  }
+  .parts h2 {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin: 0 0 var(--space-2);
+  }
+  .parts ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .parts a {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: 0 var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--line-faint);
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .parts li:last-child a {
+    border-bottom: 0;
+  }
+  .part-year {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    /* Optical: sit on the title's baseline, not the row's top edge. */
+    padding-top: 0.15em;
+  }
+  .part-tagline {
+    grid-column: 2;
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    text-wrap: pretty;
+  }
+  .parts a:hover .part-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .prose {

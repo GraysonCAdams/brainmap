@@ -75,6 +75,18 @@ const nodes = defineCollection({
       .optional(),
     /** slugs of related nodes; validated against the collection at build time */
     links: z.array(z.string()).default([]),
+    /**
+     * Slug of the node this one is a part of. Children orbit their parent on
+     * the map and inherit an implicit edge to it, so a node like a single
+     * client engagement can stand on its own without the parent's essay being
+     * shattered into a dozen thin ones.
+     *
+     * Deliberately ONE level deep and validated as such: a tree would need a
+     * layout that can nest, and the map has no such affordance. If a child
+     * ever needs children of its own, that is a signal it should be promoted
+     * to a top-level node, not that the schema should grow.
+     */
+    parent: z.string().optional(),
     visibility: z.enum(['public', 'teaser']).default('public'),
     /** tech keywords for filtering/search */
     tech: z.array(z.string()).default([]),
