@@ -10,28 +10,32 @@ links: []
 tech: [alexa, subsonic, lambda]
 ---
 
-> Draft placeholder seeded during construction; the real write-up lands soon.
-
 ## Problem
 
-Voice assistants happily stream from big services but not from the music library you host yourself.
+I have a self-hosted music library and a house full of voice speakers that could not play from it. Asking for an album out loud fell back to a streaming service instead.
 
 ## Constraints
 
-Work with the standard open music-server API so anyone's server qualifies, not just mine.
+Built against the plain, older Subsonic protocol rather than any one server's extensions, so it works with any compatible server rather than only mine.
 
 ## Approach
 
-A voice skill that maps requests onto the open API's search and streaming endpoints, with a setup wizard that automates the platform's least-documented steps.
+A skill that bridges voice requests to the library's own search and streaming endpoints, with a catalogue uploaded so the assistant knows what exists.
 
 ## Edge cases considered
 
-The platform silently disables a skill when its catalog uploads, and a recreated skill can sit half-provisioned where search resolves but playback never starts; the wizard now cycles enablement automatically because of both.
+**Two failure modes stop it working while every observable signal says healthy.** In both, the platform still sends a signed request for playable content, the skill still answers correctly, and the play instruction simply never arrives. It is possible to lose hours tuning a response that was never the variable.
+
+The first: **uploading a catalogue silently unbinds the skill.** Ingestion reports success throughout, and the only symptom is that playback quietly falls back to a streaming provider, which the speaker announces in a sentence nobody parses carefully. The fix is to delete and re-set the skill's enablement afterward. The landmine is that the sync job re-uploads whenever content changes, so **adding music can silently break voice playback**, which means enablement has to be cycled at the end of any run that uploaded.
+
+The second is stranger: **your voice alias competes with your own catalogue.** The platform resolves content before it routes to a provider, so every artist and track you upload becomes a rival for the invocation word. One name resolved to a real artist with a similar name; another collided with a band actually in my library and a well-known song, so requests arrived shaped as a track request rather than a launch. The skill was renamed several times before landing on a word that nothing in the library answers to.
+
+Both are the same underlying lesson, and it is one I keep finding in different clothes: **a component reporting success is not evidence the system works.** The only reliable signal here is whether the music actually plays.
 
 ## Tradeoffs
 
-Building on an assistant platform means inheriting its opaque failure modes. The wizard exists to absorb them.
+Targeting the older protocol rather than the modern extensions gives up richer metadata in exchange for working against anything compatible. Being the integration layer also means owning every platform quirk permanently, and this platform has more than most.
 
 ## Outcome
 
-Voice playback works; polishing the onboarding before sharing it.
+Working, with the catalogue sync and the enablement cycle wired together so the fix runs automatically after the thing that breaks it.
