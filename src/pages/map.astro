@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+---
+
+<Base title="Map">
+  <Header />
+  <main>
+    <!-- Graph island lands here (task: explore mode). Container is full-bleed
+         below the header; the island fetches /graph.json. -->
+    <div id="map-root" class="data">map loading…</div>
+  </main>
+</Base>
+
+<style>
+  main {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+  }
+  #map-root {
+    height: calc(100dvh - 8rem);
+    display: grid;
+    place-items: center;
+    color: var(--ink-faint);
+    font-size: var(--text-sm);
+  }
+</style>

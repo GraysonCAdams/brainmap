@@ -1,33 +1,138 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Lamp from '../../components/Lamp.astro';
+import Constellation from '../../components/Constellation.astro';
 
 export async function getStaticPaths() {
-  // Teaser nodes get no page: presence on the map only.
-  const nodes = await getCollection('nodes', (n) => n.data.visibility === 'public');
-  return nodes.map((node) => ({ params: { slug: node.id }, props: { node } }));
+  const all = await getCollection('nodes');
+  const pub = all.filter((n) => n.data.visibility === 'public');
+  return pub.map((node) => {
+    // Undirected neighborhood: my links plus anyone linking to me.
+    // Teaser neighbors appear (presence is public) but don't link anywhere.
+    const ids = new Set(node.data.links);
+    for (const other of all) {
+      if (other.data.links.includes(node.id)) ids.add(other.id);
+    }
+    ids.delete(node.id);
+    const neighbors = all
+      .filter((n) => ids.has(n.id))
+      .map((n) => ({
+        id: n.id,
+        title: n.data.title,
+        domain: n.data.domain,
+        teaser: n.data.visibility === 'teaser',
+      }));
+    return { params: { slug: node.id }, props: { node, neighbors } };
+  });
 }
 
-const { node } = Astro.props;
+const { node, neighbors } = Astro.props;
 const { Content } = await render(node);
+const since = node.data.started.toISOString().slice(0, 10);
 ---
 
 <Base title={node.data.title} description={node.data.tagline}>
+  <Header />
   <main>
-    <p><a href="/">&larr; map</a></p>
-    <h1>{node.data.title}</h1>
-    <p>{node.data.tagline}</p>
-    <p>
-      <strong>{node.data.status}</strong> · {node.data.domain} · since{' '}
-      {node.data.started.toISOString().slice(0, 10)}
-      {node.data.repo && (
-        <>
-          {' '}· <a href={`https://github.com/${node.data.repo}`}>{node.data.repo}</a>
-        </>
-      )}
-    </p>
     <article>
-      <Content />
+      <header class="plate" style={`--lamp: var(--lamp-${node.data.domain})`}>
+        <p class="plate-meta data">
+          <Lamp domain={node.data.domain} status={node.data.status} />
+          <span>{node.data.status}</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span>{node.data.domain}</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <time datetime={since}>{since}</time>
+          {
+            node.data.repo && (
+              <>
+                <span class="sep" aria-hidden="true">·</span>
+                <a href={`https://github.com/${node.data.repo}`}>{node.data.repo}</a>
+              </>
+            )
+          }
+        </p>
+        <h1>{node.data.title}</h1>
+        <p class="tagline">{node.data.tagline}</p>
+        {
+          node.data.tech.length > 0 && (
+            <p class="tech data">{node.data.tech.join(' · ')}</p>
+          )
+        }
+      </header>
+
+      <Constellation domain={node.data.domain} neighbors={neighbors} />
+
+      <div class="prose">
+        <Content />
+      </div>
     </article>
   </main>
 </Base>
+
+<style>
+  main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0 var(--space-4) var(--space-12);
+  }
+  .plate {
+    padding: var(--space-8) 0 0;
+  }
+  .plate-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    margin: 0 0 var(--space-3);
+  }
+  .plate-meta .sep {
+    color: var(--ink-faint);
+  }
+  .plate h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 400;
+  }
+  .tagline {
+    color: var(--ink-dim);
+    font-size: var(--text-lg);
+    margin: var(--space-2) 0 0;
+  }
+  .tech {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    margin: var(--space-3) 0 0;
+  }
+
+  .prose {
+    font-size: var(--text-base);
+  }
+  .prose :global(h2) {
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: lowercase;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--line-faint);
+    padding-top: var(--space-3);
+    margin: var(--space-8) 0 var(--space-3);
+  }
+  .prose :global(p) {
+    margin: 0 0 var(--space-4);
+    color: var(--ink);
+  }
+  .prose :global(a) {
+    color: var(--ink);
+  }
+  .prose :global(code) {
+    font-size: 0.88em;
+    background: var(--surface);
+    padding: 1px 4px;
+    border-radius: var(--radius-chip);
+  }
+</style>

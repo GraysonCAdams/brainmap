@@ -1,0 +1,53 @@
+---
+/**
+ * Domain lamp. Color = domain; treatment = status:
+ * idea = hollow, building = pulsing, shipped = solid, retired = dimmed solid.
+ */
+interface Props {
+  domain: string;
+  status: 'idea' | 'building' | 'shipped' | 'retired' | 'teaser';
+}
+const { domain, status } = Astro.props;
+---
+
+<span
+  class:list={['lamp', `lamp--${status}`]}
+  style={`--lamp: var(--lamp-${domain})`}
+  aria-hidden="true"></span>
+
+<style>
+  .lamp {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--lamp);
+    flex: none;
+  }
+  .lamp--idea {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--lamp);
+  }
+  .lamp--building {
+    animation: lamp-breathe 2.4s ease-in-out infinite;
+  }
+  .lamp--shipped {
+    box-shadow: 0 0 6px color-mix(in srgb, var(--lamp) 55%, transparent);
+  }
+  .lamp--retired {
+    opacity: var(--retired-dim);
+  }
+  .lamp--teaser {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--ink-faint);
+  }
+  @keyframes lamp-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+</style>
