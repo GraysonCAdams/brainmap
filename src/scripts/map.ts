@@ -220,9 +220,11 @@ async function init(root: HTMLElement) {
     const [start, end] = spanOf(n);
     const wStart = focus - behind;
     const wEnd = focus + ahead;
-    if (start <= wEnd && end >= wStart) return 1;
-    const distMs = start > wEnd ? start - wEnd : wStart - end;
-    return Math.max(0, 1 - distMs / YEAR / FADE_YEARS);
+    // The future hasn't happened yet: no pre-echo ghosts ahead of the window.
+    if (start > wEnd) return 0;
+    if (end >= wStart) return 1;
+    // The past fades gradually, like memory.
+    return Math.max(0, 1 - (wStart - end) / YEAR / FADE_YEARS);
   };
   const HIDE_BELOW = 0.12;
 
@@ -523,9 +525,12 @@ async function init(root: HTMLElement) {
     });
   }
 
-  // Text life-cycle animation state: labels type in, fade out.
+  // Animation state: labels type in / fade out; node visibility and cluster
+  // geometry are smoothed so nothing pops or snaps as the era changes.
   const labelAnim = new Map<string, { alpha: number; typed: number }>();
   const clusterAlpha = new Map<string, number>();
+  const clusterGeo = new Map<string, { cx: number; cy: number; r: number }>();
+  const nodeVis = new Map<string, number>();
   let lastFrame = 0;
 
   let raf = 0;
@@ -534,6 +539,18 @@ async function init(root: HTMLElement) {
     if (document.hidden) return;
     const dt = Math.min(100, lastFrame ? t - lastFrame : 16);
     lastFrame = t;
+
+    // Smooth every node's visibility toward its raw relevance: dots grow in
+    // and shrink away instead of jumping between eras.
+    for (const n of data.nodes) {
+      const target = relevance(n);
+      const cur = nodeVis.get(n.id) ?? 0;
+      const diff = target - cur;
+      const step = dt / (diff > 0 ? 300 : 420);
+      nodeVis.set(n.id, cur + Math.sign(diff) * Math.min(Math.abs(diff), step));
+    }
+    const svOf = (n: GraphNode) => nodeVis.get(n.id) ?? 0;
+
     ctx.clearRect(0, 0, width, height);
 
     // The year, dead center, everything floating over it. This IS the time
@@ -556,18 +573,32 @@ async function init(root: HTMLElement) {
     // Boundaries fade in/out instead of popping as eras change.
     for (const d of domains) {
       const members = data.nodes.filter(
-        (n) => n.domain === d && matchesFilter(n) && relevance(n) > 0.5,
+        (n) => n.domain === d && matchesFilter(n) && svOf(n) > 0.4,
       );
       const target = members.length >= 2 ? 1 : 0;
       let ca = clusterAlpha.get(d) ?? 0;
       ca = target ? Math.min(1, ca + dt / 260) : Math.max(0, ca - dt / 380);
       clusterAlpha.set(d, ca);
       if (ca < 0.02 || members.length === 0) continue;
-      const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
-      const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
-      const cr =
-        Math.max(...members.map((n) => Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy) + radiusOf(n))) +
+      const tx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
+      const ty = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
+      const tr =
+        Math.max(...members.map((n) => Math.hypot((n.x ?? 0) - tx, (n.y ?? 0) - ty) + radiusOf(n))) +
         22;
+      // Boundary geometry chases its target: circles reshape and grow rather
+      // than snapping when a member arrives or departs.
+      let geo = clusterGeo.get(d);
+      if (!geo) {
+        geo = { cx: tx, cy: ty, r: tr };
+        clusterGeo.set(d, geo);
+      }
+      const k = 1 - Math.exp(-dt / 300);
+      geo.cx += (tx - geo.cx) * k;
+      geo.cy += (ty - geo.cy) * k;
+      geo.r += (tr - geo.r) * k;
+      const cx = geo.cx;
+      const cy = geo.cy;
+      const cr = geo.r;
       const color = lamp(d);
 
       ctx.beginPath();
@@ -601,8 +632,8 @@ async function init(root: HTMLElement) {
     for (const e of edges) {
       const s = e.source as GraphNode;
       const g = e.target as GraphNode;
-      const relEdge = Math.min(relevance(s), relevance(g));
-      if (relEdge < HIDE_BELOW) continue;
+      const relEdge = Math.min(svOf(s), svOf(g));
+      if (relEdge < 0.03) continue;
       const active = hovered === s || hovered === g;
       const filtered = !matchesFilter(s) || !matchesFilter(g);
       ctx.strokeStyle = active ? INK_DIM : INK_FAINT;
@@ -617,22 +648,22 @@ async function init(root: HTMLElement) {
     ctx.globalAlpha = 1;
 
     for (const n of data.nodes) {
-      const rel = relevance(n);
-      if (rel < HIDE_BELOW) continue; // fully out of this era
+      const sv = svOf(n);
+      if (sv < 0.03) continue; // not in this era (yet, or anymore)
       const x = n.x ?? 0;
       const y = n.y ?? 0;
-      // out-of-era nodes shrink toward the boundary before disappearing
-      const r = radiusOf(n) * (0.55 + 0.45 * rel);
+      // newborn and out-of-era nodes are smaller; growth is smoothed
+      const r = radiusOf(n) * (0.45 + 0.55 * sv);
       const color = n.visibility === 'teaser' ? INK_FAINT : lamp(n.domain);
       const isActive = hovered === n;
 
       const visible = matchesFilter(n);
-      let alpha = 1;
-      if (n.status === 'retired') alpha = RETIRED_DIM;
+      let baseAlpha = 1;
+      if (n.status === 'retired') baseAlpha = RETIRED_DIM;
       if (n.status === 'building' && !reducedMotion) {
-        alpha = 0.62 + 0.38 * Math.sin(t / 700 + (n.index ?? 0));
+        baseAlpha = 0.62 + 0.38 * Math.sin(t / 700 + (n.index ?? 0));
       }
-      alpha *= 0.25 + 0.75 * rel;
+      let alpha = baseAlpha * sv;
       if (!visible) alpha = 0.07;
       ctx.globalAlpha = alpha;
 
@@ -674,12 +705,15 @@ async function init(root: HTMLElement) {
       // Label hierarchy: flagships and the hovered node at rest; everything
       // when zoomed in. During the intro sweep, ideas being born near the
       // focus year announce themselves so the tour reads as a story.
+      // During the sweep a label types the moment its dot is born (its start
+      // crossing the window's leading edge), and holds briefly after.
       const born = startMsOf.get(n.id);
+      const wEdge = focus + ahead;
       const labelWorthy =
         isActive ||
         (n.scale ?? 2) >= 4 ||
         transform.k >= 1.2 ||
-        (sweepActive && born !== undefined && Math.abs(born - focus) < 1.2 * YEAR);
+        (sweepActive && born !== undefined && born <= wEdge && wEdge - born < 1.6 * YEAR);
       const zoomAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
 
       // type in, fade out
@@ -697,7 +731,9 @@ async function init(root: HTMLElement) {
       if (st.alpha > 0.02 && zoomAlpha > 0.02) {
         const typing = wanted && st.typed < n.title.length;
         const shown = wanted ? n.title.slice(0, Math.ceil(st.typed)) : n.title;
-        ctx.globalAlpha = alpha * zoomAlpha * st.alpha;
+        // sqrt(sv): the label brightens ahead of the still-growing newborn
+        // dot so the type-in is legible from its first character
+        ctx.globalAlpha = (visible ? baseAlpha * Math.sqrt(sv) : 0.07) * zoomAlpha * st.alpha;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
         ctx.fillStyle = isActive ? INK : INK_DIM;
         ctx.textAlign = 'center';
