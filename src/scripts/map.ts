@@ -383,8 +383,8 @@ async function init(root: HTMLElement) {
       return first + (NOW - first) * frac;
     };
 
-    const LINGER_MS = 1400;
-    const SWEEP_MS = 5600;
+    const LINGER_MS = 1600;
+    const SWEEP_MS = 18400; // ~20s tour total, distributed by idea density
     setTimeout(() => {
       if (!sweepActive) return;
       const t0ms = performance.now();
@@ -523,10 +523,17 @@ async function init(root: HTMLElement) {
     });
   }
 
+  // Text life-cycle animation state: labels type in, fade out.
+  const labelAnim = new Map<string, { alpha: number; typed: number }>();
+  const clusterAlpha = new Map<string, number>();
+  let lastFrame = 0;
+
   let raf = 0;
   const draw = (t: number) => {
     raf = requestAnimationFrame(draw);
     if (document.hidden) return;
+    const dt = Math.min(100, lastFrame ? t - lastFrame : 16);
+    lastFrame = t;
     ctx.clearRect(0, 0, width, height);
 
     // The year, dead center, everything floating over it. This IS the time
@@ -546,11 +553,16 @@ async function init(root: HTMLElement) {
 
     // cluster boundaries: enclosing CIRCLE per domain (2+ visible members),
     // label breaking the stroke at the top like a fieldset legend.
+    // Boundaries fade in/out instead of popping as eras change.
     for (const d of domains) {
       const members = data.nodes.filter(
         (n) => n.domain === d && matchesFilter(n) && relevance(n) > 0.5,
       );
-      if (members.length < 2) continue;
+      const target = members.length >= 2 ? 1 : 0;
+      let ca = clusterAlpha.get(d) ?? 0;
+      ca = target ? Math.min(1, ca + dt / 260) : Math.max(0, ca - dt / 380);
+      clusterAlpha.set(d, ca);
+      if (ca < 0.02 || members.length === 0) continue;
       const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
       const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
       const cr =
@@ -561,9 +573,9 @@ async function init(root: HTMLElement) {
       ctx.beginPath();
       ctx.arc(cx, cy, cr, 0, Math.PI * 2);
       ctx.fillStyle = color;
-      ctx.globalAlpha = 0.03;
+      ctx.globalAlpha = 0.03 * ca;
       ctx.fill();
-      ctx.globalAlpha = 0.26;
+      ctx.globalAlpha = 0.26 * ca;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1 / transform.k;
       ctx.stroke();
@@ -573,10 +585,10 @@ async function init(root: HTMLElement) {
       ctx.font = `600 ${size}px ${FONT_DATA}`;
       const text = d.toUpperCase();
       const tw = ctx.measureText(text).width;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = ca;
       ctx.fillStyle = GROUND;
       ctx.fillRect(cx - tw / 2 - 6 / transform.k, cy - cr - size * 0.75, tw + 12 / transform.k, size * 1.5);
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.5 * ca;
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.fillText(text, cx, cy - cr + size * 0.35);
@@ -668,13 +680,28 @@ async function init(root: HTMLElement) {
         (n.scale ?? 2) >= 4 ||
         transform.k >= 1.2 ||
         (sweepActive && born !== undefined && Math.abs(born - focus) < 1.2 * YEAR);
-      const labelAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
-      if (labelWorthy && labelAlpha > 0.02 && visible) {
-        ctx.globalAlpha = alpha * labelAlpha;
+      const zoomAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
+
+      // type in, fade out
+      const st = labelAnim.get(n.id) ?? { alpha: 0, typed: 0 };
+      const wanted = labelWorthy && visible;
+      if (wanted) {
+        st.alpha = Math.min(1, st.alpha + dt / 150);
+        st.typed = Math.min(n.title.length, st.typed + dt / 26);
+      } else {
+        st.alpha = Math.max(0, st.alpha - dt / 380);
+        if (st.alpha === 0) st.typed = 0;
+      }
+      labelAnim.set(n.id, st);
+
+      if (st.alpha > 0.02 && zoomAlpha > 0.02) {
+        const typing = wanted && st.typed < n.title.length;
+        const shown = wanted ? n.title.slice(0, Math.ceil(st.typed)) : n.title;
+        ctx.globalAlpha = alpha * zoomAlpha * st.alpha;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
         ctx.fillStyle = isActive ? INK : INK_DIM;
         ctx.textAlign = 'center';
-        ctx.fillText(n.title, x, y + r + 14 / transform.k);
+        ctx.fillText(typing ? `${shown}_` : shown, x, y + r + 14 / transform.k);
       }
       ctx.globalAlpha = 1;
     }
