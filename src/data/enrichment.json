@@ -1,7 +1,11 @@
 {
   "brainmap": {
     "repo": "GraysonCAdams/brainmap",
-    "missing": true,
-    "checkedAt": "2026-08-02T16:27:27.018Z"
+    "missing": false,
+    "pushedAt": "2026-08-02T16:28:20Z",
+    "freshness": 1,
+    "language": "Astro",
+    "stars": 0,
+    "checkedAt": "2026-08-02T16:28:27.876Z"
   }
 }
