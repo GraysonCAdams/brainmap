@@ -1,6 +1,7 @@
 ---
 title: Litter Box Loop
 tagline: The litter box, the vacuum, and the air purifier negotiate among themselves.
+scale: 1
 status: shipped
 domain: home-automation
 tags: []

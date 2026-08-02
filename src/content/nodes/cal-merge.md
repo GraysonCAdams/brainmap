@@ -1,6 +1,7 @@
 ---
 title: Calendar Merge
 tagline: Many calendars in, one clean shared calendar out.
+scale: 2
 status: shipped
 domain: utilities
 tags: [workflows]

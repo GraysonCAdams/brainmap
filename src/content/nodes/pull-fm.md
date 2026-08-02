@@ -1,6 +1,7 @@
 ---
 title: Pull.fm
 tagline: A music discovery engine with a record-store owner's taste.
+scale: 4
 status: building
 domain: apps
 tags: [media, ai-tooling]

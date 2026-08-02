@@ -1,6 +1,7 @@
 ---
 title: MCP Gateway
 tagline: One authenticated front door for a fleet of personal AI tool servers.
+scale: 3
 status: shipped
 domain: ai-tooling
 tags: [infra]

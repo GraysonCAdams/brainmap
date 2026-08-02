@@ -1,10 +1,12 @@
 ---
 title: Fast Alerts
 tagline: Restock alerts that beat the scalpers, for 200,000 people.
+scale: 5
 status: retired
 domain: apps
 tags: [infra]
 started: 2021-08-01
+ended: 2023-05-01
 links: []
 tech: [kubernetes, celery, redis, react]
 ---

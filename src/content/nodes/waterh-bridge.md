@@ -1,6 +1,7 @@
 ---
 title: Hydration Bridge
 tagline: A smart water bottle's cloud, reverse-engineered into my own health tracker.
+scale: 2
 status: shipped
 domain: utilities
 tags: [home-automation]

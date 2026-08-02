@@ -1,6 +1,7 @@
 ---
 title: Sandbroker
 tagline: Agents can use my secrets but can never see them.
+scale: 4
 status: building
 domain: security
 tags: [ai-tooling]

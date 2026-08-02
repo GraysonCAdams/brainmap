@@ -1,6 +1,7 @@
 ---
 title: Photo Restoration
 tagline: Hands-off restoration for boxes of scanned family photos.
+scale: 2
 status: shipped
 domain: media
 tags: []

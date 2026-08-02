@@ -38,6 +38,8 @@ const nodes = defineCollection({
     status: z.enum(STATUSES),
     domain: z.enum(DOMAINS),
     started: z.coerce.date(),
+    /** when the project stopped being active; open-ended if omitted */
+    ended: z.coerce.date().optional(),
     /**
      * Secondary domains. `domain` stays singular (one lamp color, one cluster
      * home on the map); tags make the node match additional domain filters.
@@ -53,6 +55,11 @@ const nodes = defineCollection({
     visibility: z.enum(['public', 'teaser']).default('public'),
     /** tech keywords for filtering/search */
     tech: z.array(z.string()).default([]),
+    /**
+     * Project caliber, 1-5: codebase size, user reach, ambition. Drives dot
+     * size on the map. 1 = weekend hack, 5 = flagship.
+     */
+    scale: z.number().int().min(1).max(5).default(2),
     /** flagship nodes surface in the "start here" path, lowest number first */
     featured: z.number().int().positive().optional(),
   }),

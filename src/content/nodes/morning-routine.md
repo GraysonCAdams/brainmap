@@ -1,6 +1,7 @@
 ---
 title: Morning Routine Orchestration
 tagline: The apartment notices I'm awake and gets on with it.
+scale: 2
 status: shipped
 domain: home-automation
 tags: [workflows]

@@ -14,6 +14,10 @@ const featured = nodes
   .filter((n) => n.data.featured)
   .sort((a, b) => a.data.featured! - b.data.featured!);
 const fmt = (d: Date) => d.toISOString().slice(0, 7);
+
+const techCounts = new Map<string, number>();
+for (const n of nodes) for (const t of n.data.tech) techCounts.set(t, (techCounts.get(t) ?? 0) + 1);
+const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([t]) => t);
 ---
 
 <Base title="Bio" description={SITE.description}>
@@ -52,6 +56,8 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
         {STATUSES.map((s) => <button class="chip" data-filter-status={s}>{s}</button>)}
         <span class="filter-sep" aria-hidden="true"></span>
         {DOMAINS.map((d) => <button class="chip" data-filter-domain={d}>{d}</button>)}
+        <span class="filter-sep" aria-hidden="true"></span>
+        {topTech.map((t) => <button class="chip" data-filter-tech={t}>{t}</button>)}
       </div>
 
       <table>
@@ -70,6 +76,7 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
               <tr
                 data-status={n.data.status}
                 data-domain={[n.data.domain, ...n.data.tags].join(' ')}
+                data-tech={n.data.tech.join(' ')}
               >
                 <td class="col-lamp">
                   <Lamp domain={n.data.domain} status={n.data.status} />
@@ -101,11 +108,14 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
       chips.filter((c) => c.hasAttribute(attr) && c.ariaPressed === 'true').map((c) => c.getAttribute(attr));
     const statuses = on('data-filter-status');
     const domains = on('data-filter-domain');
+    const tech = on('data-filter-tech');
     for (const r of rows) {
       const okS = statuses.length === 0 || statuses.includes(r.dataset.status ?? '');
       const rowDomains = (r.dataset.domain ?? '').split(' ');
       const okD = domains.length === 0 || domains.some((d) => rowDomains.includes(d ?? ''));
-      r.hidden = !(okS && okD);
+      const rowTech = (r.dataset.tech ?? '').split(' ');
+      const okT = tech.length === 0 || tech.some((t) => rowTech.includes(t ?? ''));
+      r.hidden = !(okS && okD && okT);
     }
   };
   for (const c of chips) {

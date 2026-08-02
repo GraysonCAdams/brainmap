@@ -1,6 +1,7 @@
 ---
 title: Voice Journal
 tagline: Talk on the drive home; get a searchable, private journal.
+scale: 1
 status: idea
 domain: ai-tooling
 tags: [workflows]

@@ -1,6 +1,7 @@
 ---
 title: Family Movies Gateway
 tagline: End-to-end-encrypted family videos, streaming to the living room TV.
+scale: 4
 status: shipped
 domain: media
 tags: [apps]

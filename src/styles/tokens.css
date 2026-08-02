@@ -141,6 +141,16 @@ h1::before {
   }
 }
 
+/* Embed mode: page rendered inside the map's node modal iframe.
+   Only body-level chrome hides; article-level <header>s (the plate) stay. */
+[data-embed] body > header,
+[data-embed] body > footer {
+  display: none !important;
+}
+[data-embed] main {
+  padding-top: 0 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

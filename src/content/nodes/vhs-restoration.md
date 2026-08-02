@@ -1,6 +1,7 @@
 ---
 title: VHS Restoration Pipeline
 tagline: Decades of family tape, restored to something worth watching.
+scale: 3
 status: shipped
 domain: media
 tags: [workflows]

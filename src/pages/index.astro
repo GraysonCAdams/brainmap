@@ -14,6 +14,14 @@ const counts = Object.fromEntries(
   ]),
 );
 const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
+
+// Tech facet: counted across public nodes, most-used first.
+const techCounts = new Map<string, number>();
+for (const n of all) {
+  if (n.data.visibility !== 'public') continue;
+  for (const t of n.data.tech) techCounts.set(t, (techCounts.get(t) ?? 0) + 1);
+}
+const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
 ---
 
 <Base>
@@ -25,13 +33,20 @@ const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
       </noscript>
     </div>
 
-    <aside id="map-card" hidden>
-      <button class="card-close data" aria-label="Close">esc</button>
-      <p class="card-meta data"></p>
-      <h2 class="card-title"></h2>
-      <p class="card-tagline"></p>
-      <a class="card-link" href="/">read the full story &rarr;</a>
-    </aside>
+    <!-- cursor-following hover tooltip -->
+    <div id="map-tip" class="data" hidden>
+      <p class="tip-title"></p>
+      <p class="tip-text"></p>
+      <p class="tip-tech"></p>
+    </div>
+
+    <!-- expanded project: modal overlay, URL updates to the real page -->
+    <div id="node-modal" class="node-backdrop" hidden>
+      <section class="node-shell" role="dialog" aria-modal="true" aria-label="Project">
+        <button class="node-close data" aria-label="Close">esc</button>
+        <iframe id="node-frame" title="Project write-up"></iframe>
+      </section>
+    </div>
 
     <!-- whoami modal: first-visit overview, dismissable, remembered -->
     <div id="intro" class="intro-backdrop" hidden>
@@ -70,8 +85,33 @@ const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
           ))
         }
         <p class="panel-hint">multi-tagged ideas match every domain they touch</p>
+        <p class="panel-title panel-title-stack">## stack</p>
+        <div class="stack-chips">
+          {
+            panelTech.map(([t, c]) => (
+              <button class="tchip" data-tech-filter={t} aria-pressed="false">
+                {t}
+                <span class="dcount">{c}</span>
+              </button>
+            ))
+          }
+        </div>
       </div>
     </aside>
+
+    <!-- timelapse: draggable focus year + stretchable relevance window -->
+    <div id="timeline" class="data" aria-label="Time travel">
+      <button id="tl-reset">[ reset ]</button>
+      <div id="tl-track">
+        <div id="tl-ticks"></div>
+        <div id="tl-region">
+          <div class="tl-edge" id="tl-edge-l" title="drag: how far back stays relevant"></div>
+          <div class="tl-edge" id="tl-edge-r" title="drag: how far ahead stays relevant"></div>
+        </div>
+        <div id="tl-handle" title="drag through time"></div>
+      </div>
+      <span id="tl-readout">now</span>
+    </div>
 
     <footer class="legend data" aria-label="How to read the map">
       <span><i class="key key-idea"></i>idea</span>
@@ -79,7 +119,7 @@ const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
       <span><i class="key key-shipped"></i>shipped</span>
       <span><i class="key key-retired"></i>retired</span>
       <span><i class="key key-teaser"></i>in stealth</span>
-      <span class="legend-hint">color = domain · drag to pan · pinch or scroll to zoom</span>
+      <span class="legend-hint">color = domain · size = scope · drag, pinch, scroll</span>
     </footer>
   </main>
 </Base>
@@ -138,52 +178,114 @@ const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
     height: 100%;
   }
 
-  #map-card {
+  #map-tip {
     position: absolute;
-    right: var(--space-4);
-    bottom: var(--space-4);
-    width: min(22rem, calc(100% - 2rem));
+    max-width: 17rem;
     background: var(--surface-raised);
     border: 1px solid var(--line);
     border-top: 2px solid var(--lamp, var(--line));
     border-radius: var(--radius-chip);
-    padding: var(--space-4);
-    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+    padding: var(--space-2) var(--space-3);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+    pointer-events: none;
+    z-index: 6;
+    font-size: var(--text-xs);
   }
-  .card-close {
+  #map-tip[hidden] {
+    display: none;
+  }
+  .tip-title {
+    color: var(--ink);
+    font-weight: 600;
+    margin: 0;
+  }
+  .tip-text {
+    color: var(--ink-dim);
+    margin: 2px 0 0;
+  }
+  .tip-tech {
+    color: var(--ink-faint);
+    margin: 3px 0 0;
+  }
+
+  .node-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(6 10 11 / 0.72);
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    z-index: 12;
+  }
+  .node-backdrop[hidden] {
+    display: none;
+  }
+  .node-shell {
+    position: relative;
+    width: min(52rem, 100%);
+    height: min(85%, 60rem);
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.55);
+    overflow: hidden;
+  }
+  .node-close {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
     font: inherit;
     font-size: var(--text-xs);
     color: var(--ink-faint);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 1px 6px;
+    cursor: pointer;
+    z-index: 1;
+  }
+  .node-close:hover {
+    color: var(--ink);
+  }
+  #node-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--ground);
+  }
+
+  .panel-title-stack {
+    margin-top: var(--space-3);
+  }
+  .stack-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .tchip {
+    font: inherit;
+    font-size: 0.68rem;
+    color: var(--ink-dim);
     background: none;
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 1px 6px;
     cursor: pointer;
   }
-  .card-close:hover {
+  .tchip .dcount {
+    margin-left: 4px;
+  }
+  .tchip:hover {
     color: var(--ink);
+    border-color: var(--ink-faint);
   }
-  .card-meta {
-    font-size: var(--text-xs);
-    color: var(--ink-faint);
-    margin: 0 0 var(--space-2);
-    padding-right: var(--space-8);
+  .tchip[aria-pressed='true'] {
+    color: var(--ground);
+    background: var(--ink);
+    border-color: var(--ink);
   }
-  .card-title {
-    font-family: var(--font-display);
-    font-size: var(--text-lg);
-    font-weight: 600;
-  }
-  .card-tagline {
-    color: var(--ink-dim);
-    font-size: var(--text-sm);
-    margin: var(--space-2) 0 var(--space-3);
-  }
-  .card-link {
-    font-size: var(--text-sm);
+  .tchip[aria-pressed='true'] .dcount {
+    color: var(--ground);
   }
 
   .intro-backdrop[hidden] {
@@ -324,10 +426,113 @@ const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
     font-size: 0.68rem;
   }
 
+  #timeline {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: var(--space-3);
+    width: min(46rem, calc(100% - 2rem));
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    z-index: 5;
+  }
+  #tl-reset {
+    font: inherit;
+    color: var(--ink-faint);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+  }
+  #tl-reset:hover {
+    color: var(--ink);
+  }
+  #tl-track {
+    position: relative;
+    flex: 1;
+    height: 26px;
+    cursor: pointer;
+  }
+  #tl-track::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--line);
+  }
+  #tl-ticks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  #tl-ticks :global(.tick) {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 6px;
+    transform: translateY(-50%);
+    background: var(--line);
+  }
+  #tl-ticks :global(.tick-label) {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 0.62rem;
+    color: var(--ink-faint);
+  }
+  #tl-region {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 12px;
+    background: color-mix(in srgb, var(--prompt) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--prompt) 45%, transparent);
+    border-radius: 2px;
+  }
+  .tl-edge {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 8px;
+    cursor: ew-resize;
+  }
+  #tl-edge-l {
+    left: -4px;
+  }
+  #tl-edge-r {
+    right: -4px;
+  }
+  #tl-handle {
+    position: absolute;
+    top: 50%;
+    width: 3px;
+    height: 18px;
+    transform: translate(-50%, -50%);
+    background: var(--ink);
+    border-radius: 1px;
+    cursor: grab;
+  }
+  #tl-readout {
+    min-width: 3ch;
+    text-align: right;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
   .legend {
     position: absolute;
     left: var(--space-4);
-    bottom: var(--space-4);
+    bottom: calc(var(--space-3) + 3.4rem);
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3);

@@ -1,6 +1,7 @@
 ---
 title: Box Stack
 tagline: A cloud fleet's worth of personal apps, consolidated onto one orchestrated server.
+scale: 4
 status: shipped
 domain: infra
 tags: [utilities]

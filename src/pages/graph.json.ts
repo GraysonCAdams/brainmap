@@ -46,8 +46,10 @@ export const GET: APIRoute = async () => {
     return {
       ...base,
       started: n.data.started.toISOString().slice(0, 10),
+      ended: n.data.ended ? n.data.ended.toISOString().slice(0, 10) : null,
       repo: n.data.repo ?? null,
       tech: n.data.tech,
+      scale: n.data.scale,
       featured: n.data.featured ?? null,
       freshness: enriched[n.id]?.freshness ?? null,
     };

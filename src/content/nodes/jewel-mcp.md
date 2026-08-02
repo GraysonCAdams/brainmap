@@ -1,6 +1,7 @@
 ---
 title: Grocery Pickup MCP
 tagline: My AI assistant builds the grocery pickup order; I just pay.
+scale: 3
 status: shipped
 domain: ai-tooling
 tags: [apps]

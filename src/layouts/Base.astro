@@ -26,6 +26,11 @@ const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.name} · ${SITE.
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
   </head>
   <body>
+    <script is:inline>
+      // Embed mode: the map's node modal iframes pages with ?embed=1 and the
+      // page hides its own chrome (CSS keys off this attribute).
+      if (location.search.includes('embed=1')) document.documentElement.dataset.embed = '1';
+    </script>
     <slot />
   </body>
 </html>

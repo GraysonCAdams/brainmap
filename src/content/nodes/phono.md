@@ -1,6 +1,7 @@
 ---
 title: Phono
 tagline: An Alexa music skill for any self-hosted music server.
+scale: 3
 status: building
 domain: apps
 tags: [media]
