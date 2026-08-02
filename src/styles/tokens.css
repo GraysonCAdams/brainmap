@@ -151,6 +151,19 @@ h1::before {
   padding-top: 0 !important;
 }
 
+/* Touch ergonomics: 16px inputs stop iOS focus-zoom; bigger tap targets. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  button,
+  nav a {
+    min-height: 32px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

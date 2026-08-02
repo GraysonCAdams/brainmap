@@ -71,6 +71,8 @@ async function init(root: HTMLElement) {
   canvas.style.width = '100%';
   canvas.style.height = '100%';
   canvas.style.cursor = 'grab';
+  // Without this, mobile browsers claim pinch/pan for page zoom and scroll.
+  canvas.style.touchAction = 'none';
   root.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('no 2d context');
@@ -223,6 +225,8 @@ async function init(root: HTMLElement) {
   const startDrag = (which: typeof dragTarget.current) => (ev: PointerEvent) => {
     ev.stopPropagation();
     ev.preventDefault();
+    // keep receiving moves even when the finger wanders off the element
+    (ev.target as Element).setPointerCapture?.(ev.pointerId);
     dragTarget.current = which;
   };
   tl.handle.addEventListener('pointerdown', startDrag('handle'));
@@ -321,6 +325,9 @@ async function init(root: HTMLElement) {
   };
 
   canvas.addEventListener('pointermove', (ev) => {
+    // Hover affordances are mouse/pen only; on touch a moving finger is a
+    // pan, and tap-to-open shows everything the tooltip would.
+    if (ev.pointerType === 'touch') return;
     const r = canvas.getBoundingClientRect();
     const px = ev.clientX - r.left;
     const py = ev.clientY - r.top;
