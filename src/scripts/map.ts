@@ -501,26 +501,31 @@ async function init(root: HTMLElement) {
         term.appendChild(c);
       }
     };
-    const byYear = new Map<number, string[]>();
-    for (const n of data.nodes) {
-      if (!n.started) continue;
-      const y = new Date(Date.parse(n.started)).getUTCFullYear();
-      (byYear.get(y) ?? byYear.set(y, []).get(y)!).push(n.title);
-    }
-    const lineFor = (y: number) => {
-      const t = byYear.get(y);
-      if (!t?.length) return null;
-      const what =
-        t.length <= 2 ? t.join(', ') : `${t.length} projects`;
-      return `==> ${y}  loading ${what}`;
-    };
-    let lastYear = 0;
+    // Eras, not a manifest. The giant year watermark already says *when*; this
+    // line says what that stretch of time was actually like. Ranges overlap
+    // years deliberately so quiet stretches keep reading as one chapter.
+    const ERAS: [number, number, string][] = [
+      [2003, 2006, 'a site my dad put up for me. i started changing things to see what would break'],
+      [2007, 2009, 'teaching it back on youtube, mostly to figure out if i understood it'],
+      [2010, 2011, 'local businesses needed websites. i needed the reps'],
+      [2012, 2013, 'free game server hosting, run out of a bedroom, and it kept growing'],
+      [2014, 2015, 'college. student radio, the newspaper, and one more matchmaking site'],
+      [2016, 2018, 'internships: telecom, hospitality, broadcast. enterprise systems up close'],
+      [2019, 2020, 'live streaming at scale, and a homelab that stopped being a hobby'],
+      [2021, 2023, 'the chip shortage. a startup on nights and weekends, and a lot of migrations'],
+      [2024, 2025, 'platform work. five days of setup down to under ten minutes'],
+      [2026, 2026, 'building faster than i can write it down. AI-assisted, openly'],
+    ];
+    const eraFor = (y: number) => ERAS.find(([a, b]) => y >= a && y <= b) ?? null;
+    let lastEra: string | null = null;
     const narrate = (y: number) => {
-      if (y === lastYear) return;
-      lastYear = y;
-      const line = lineFor(y);
-      if (line) setTerm(line, true);
+      const era = eraFor(y);
+      if (!era || era[2] === lastEra) return;
+      lastEra = era[2];
+      const span = era[0] === era[1] ? `${era[0]}` : `${era[0]}-${era[1]}`;
+      setTerm(`# ${span}  ${era[2]}`, true);
     };
+
     const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
     const typeCommand = (done: () => void) => {
       if (!term) return done();
@@ -591,10 +596,8 @@ async function init(root: HTMLElement) {
                 renderTimeline();
                 sweepActive = false;
                 introCam = false;
-                const yrs =
-                  new Date(NOW).getUTCFullYear() - new Date(T0).getUTCFullYear();
                 setTerm(
-                  `==> ok  ${data.nodes.length} projects across ${yrs} years`,
+                  `# ${data.nodes.length} of them, and the map is still growing`,
                 );
                 headerEl?.classList.remove('has-term');
               }
