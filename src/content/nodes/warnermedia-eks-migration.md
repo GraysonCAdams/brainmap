@@ -34,4 +34,4 @@ Managed Kubernetes trades control for operational relief, and that trade is only
 
 ## Outcome
 
-The production workload for live streaming platforms moved onto managed Kubernetes, with over a hundred previously hand-created cloud resources brought under infrastructure as code. This is also where the homelab stopped being a hobby and started being the reason I could do the job.
+Co-managed the migration of the production workload for live streaming platforms onto managed Kubernetes, with over a hundred previously hand-created cloud resources brought under infrastructure as code. This is also where the homelab stopped being a hobby and started being the reason I could do the job.

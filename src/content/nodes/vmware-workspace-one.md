@@ -8,7 +8,7 @@ tags: [workflows]
 started: 2018-07-01
 ended: 2019-06-01
 links: [freelance-web]
-tech: [workspace-one, mdm, jamf]
+tech: [workspace-one, mdm, jamf, adfs, okta, sso]
 ---
 
 ## Problem
@@ -21,7 +21,7 @@ Federal and corporate customers, which sets the change-control bar high and make
 
 ## Approach
 
-Run the implementation as a sequence of scoped waves rather than a cutover, with the customer's own staff doing enough of the work to be able to operate it afterwards. Most of the actual job was scheduling, communicating, and making sure the right people were on the right call.
+Run the implementation as a sequence of scoped waves rather than a cutover, wiring each deployment into the customer's existing identity provider so enrollment used credentials people already had, with the customer's own staff doing enough of the work to be able to operate it afterwards. Most of the actual job was scheduling, communicating, and making sure the right people were on the right call.
 
 ## Edge cases considered
 
@@ -33,4 +33,4 @@ Consulting work optimizes for the customer being self-sufficient after you leave
 
 ## Outcome
 
-A year of implementations and migrations across federal and corporate customers. It was also where I learned that talking to people is a technical skill with the same failure modes as any other: unstated assumptions, missing error handling, no retries.
+A year of implementations, migrations, and single sign-on integrations across federal and corporate customers. It was also where I learned that talking to people is a technical skill with the same failure modes as any other: unstated assumptions, missing error handling, no retries.

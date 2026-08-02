@@ -42,6 +42,6 @@ The security of the code was poor by any standard I would accept now: most queri
 
 ## Outcome
 
-The site's own counter read **1,078,950 submitted lobbies** in a February 2014 snapshot. The forum carried roughly 2,200 matchmaking threads and a dedicated cheater-reporting category with over 600 more, which is to say moderation became a real operational load rather than an afterthought. Funding came from donor tiers wired directly into the forum's role table and enforced in-game by live queries.
+The site's own counter read **1,078,950 submitted lobbies** in a February 2014 snapshot. The forum carried roughly 2,200 matchmaking threads and a dedicated cheater-reporting category with over 600 more, which is to say moderation became a real operational load rather than an afterthought. Across its two-year run my resumes of the period record **500,000 unique visitors and roughly 4.27 million pageviews**, with about 100,000 registered members. Funding came from donor tiers wired directly into the forum's role table and enforced in-game by live queries, alongside a partnership with the hosting provider.
 
 Superseded in mid-2014 by JoinLobbies, which generalized the idea past Minecraft.

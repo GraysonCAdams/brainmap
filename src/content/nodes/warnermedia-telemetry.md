@@ -35,4 +35,4 @@ Fanning out to three backends means paying three times for storage and keeping t
 
 ## Outcome
 
-Over 120 million vital metrics transmitted. The lesson that generalized: a monitoring system that cannot detect its own silence is not a monitoring system.
+Over 120 million vital metrics transmitted, plus an alerting application covering more than ten legacy systems that had no instrumentation of their own. Those were the ones nobody could see into, which made them the ones most likely to fail quietly. The lesson that generalized: a monitoring system that cannot detect its own silence is not a monitoring system.
