@@ -1,13 +1,13 @@
 ---
-title: Phono
+title: Ampere
 tagline: An Alexa music skill for any self-hosted music server.
 scale: 3
 status: building
 domain: apps
 tags: [media]
-started: 2026-07-25
+started: 2026-07-29
 links: []
-tech: [alexa, subsonic, lambda]
+tech: [alexa, subsonic, docker]
 ---
 
 > Draft placeholder seeded during construction; the real write-up lands soon.

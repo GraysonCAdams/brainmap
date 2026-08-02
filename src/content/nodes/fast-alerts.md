@@ -1,14 +1,14 @@
 ---
 title: Fast Alerts
-tagline: Restock alerts that beat the scalpers, for 200,000 people.
-scale: 5
+tagline: A chip-shortage restock alert service, built and run with a friend.
+scale: 2
 status: retired
 domain: apps
 tags: [infra]
-started: 2021-08-01
-ended: 2023-05-01
+started: 2021-09-12
+ended: 2021-09-17
 links: []
-tech: [kubernetes, celery, redis, react]
+tech: [python, django, discord]
 ---
 
 > Draft placeholder seeded during construction; the real write-up lands soon.
