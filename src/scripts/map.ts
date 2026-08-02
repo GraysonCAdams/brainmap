@@ -294,6 +294,7 @@ async function init(root: HTMLElement) {
   let downAt = 0;
   tl.track.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
+    cancelSweep(); // the user grabbed the wheel; the tour yields instantly
     tl.track.setPointerCapture?.(ev.pointerId);
     downX = ev.clientX;
     downAt = performance.now();
@@ -335,6 +336,7 @@ async function init(root: HTMLElement) {
   });
   tl.track.addEventListener('pointercancel', () => (dragMode = null));
   tl.reset.addEventListener('click', () => {
+    cancelSweep();
     travelTo(NOW, 500);
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
@@ -343,6 +345,7 @@ async function init(root: HTMLElement) {
   // Smooth travel used by boundary-node clicks and the intro sweep.
   let travelRaf = 0;
   const travelTo = (target: number, ms = 700) => {
+    cancelSweep();
     cancelAnimationFrame(travelRaf);
     const from = focus;
     const start = performance.now();
@@ -358,11 +361,66 @@ async function init(root: HTMLElement) {
     travelRaf = requestAnimationFrame(step);
   };
 
-  // Intro: sweep from the beginning of the record to today.
+  // ---- Intro sweep: linger on the first idea, then travel to today with
+  // density-adaptive pacing (slow through crowded years, quick over dead air).
+  let sweepActive = false;
+  let sweepRaf = 0;
+  const startMsOf = new Map<string, number>(
+    data.nodes.filter((n) => n.started).map((n) => [n.id, Date.parse(n.started!)]),
+  );
+  const cancelSweep = () => {
+    if (!sweepActive) return;
+    sweepActive = false;
+    cancelAnimationFrame(sweepRaf);
+  };
   if (!reducedMotion && !location.hash) {
-    focus = T0;
+    const starts = [...startMsOf.values()].sort((a, b) => a - b);
+    const first = starts[0] ?? T0;
+    focus = first; // open ON the first dot, not on empty January 2000
     renderTimeline();
-    setTimeout(() => travelTo(NOW, 4500), 900);
+    sweepActive = true;
+
+    // Density-weighted progress curve: wall-clock spent near time t grows
+    // with how many ideas start near t.
+    const SAMPLES = 240;
+    const weights: number[] = [];
+    for (let i = 0; i < SAMPLES; i++) {
+      const t = first + ((NOW - first) * i) / (SAMPLES - 1);
+      const near = starts.filter((s) => Math.abs(s - t) < 1.5 * YEAR).length;
+      weights.push(1 + near * 1.6);
+    }
+    const cum: number[] = [0];
+    for (let i = 1; i < SAMPLES; i++) cum.push(cum[i - 1] + (weights[i - 1] + weights[i]) / 2);
+    const total = cum[SAMPLES - 1];
+    const timeAtU = (u: number) => {
+      const target = u * total;
+      let i = 1;
+      while (i < SAMPLES - 1 && cum[i] < target) i++;
+      const seg = (target - cum[i - 1]) / (cum[i] - cum[i - 1] || 1);
+      const frac = (i - 1 + seg) / (SAMPLES - 1);
+      return first + (NOW - first) * frac;
+    };
+
+    const LINGER_MS = 1400;
+    const SWEEP_MS = 5600;
+    setTimeout(() => {
+      if (!sweepActive) return;
+      const t0ms = performance.now();
+      const step = (nowMs: number) => {
+        if (!sweepActive) return;
+        const u = Math.max(0, Math.min(1, (nowMs - t0ms) / SWEEP_MS));
+        focus = timeAtU(u);
+        renderTimeline();
+        if (u < 1) {
+          sweepRaf = requestAnimationFrame(step);
+        } else {
+          sweepActive = false;
+          focus = NOW;
+          renderTimeline();
+        }
+      };
+      sweepRaf = requestAnimationFrame(step);
+    }, LINGER_MS);
   } else {
     renderTimeline();
   }
@@ -608,8 +666,14 @@ async function init(root: HTMLElement) {
       }
 
       // Label hierarchy: flagships and the hovered node at rest; everything
-      // when zoomed in. Identity for the rest lives in tooltip/modal/zoom.
-      const labelWorthy = isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2;
+      // when zoomed in. During the intro sweep, ideas being born near the
+      // focus year announce themselves so the tour reads as a story.
+      const born = startMsOf.get(n.id);
+      const labelWorthy =
+        isActive ||
+        (n.scale ?? 2) >= 4 ||
+        transform.k >= 1.2 ||
+        (sweepActive && born !== undefined && Math.abs(born - focus) < 1.2 * YEAR);
       const labelAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
       if (labelWorthy && labelAlpha > 0.02 && visible) {
         ctx.globalAlpha = alpha * labelAlpha;
