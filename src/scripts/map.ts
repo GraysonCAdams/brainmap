@@ -507,8 +507,13 @@ async function init(root: HTMLElement) {
     // screen for as long as its own sentence takes to read, so a long line is
     // never yanked away mid-clause. ~34ms/char lands near a comfortable
     // 250wpm, plus a settle beat before the eye starts.
-    const PER_CHAR = 34;
-    const SETTLE_MS = 1100;
+    const PER_CHAR = 52;
+    const SETTLE_MS = 1500;
+    // Fraction of an era spent travelling. The remainder is a dead stop: the
+    // year stops counting and the dots stop arriving so the sentence can be
+    // read against a still frame. Reading against motion is the thing that
+    // made this feel rushed even at a generous words-per-minute.
+    const TRAVEL = 0.62;
     const schedule = ERAS.map(([a, b, text]) => ({
       from: Date.UTC(a, 0, 1),
       to: Math.min(NOW, Date.UTC(b + 1, 0, 1)),
@@ -530,7 +535,11 @@ async function init(root: HTMLElement) {
             eraIdx = i;
             pushLine(`# ${e.span}  ${e.text}`);
           }
-          const q = Math.max(0, Math.min(1, (elapsed - acc) / e.dur));
+          const raw = Math.max(0, Math.min(1, (elapsed - acc) / e.dur));
+          // Ease out into the hold so the year decelerates rather than
+          // stopping dead, then sits still for the rest of the beat.
+          const t = Math.min(1, raw / TRAVEL);
+          const q = 1 - Math.pow(1 - t, 3);
           return e.from + (e.to - e.from) * q;
         }
         acc += e.dur;
