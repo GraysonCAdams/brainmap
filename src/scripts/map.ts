@@ -60,6 +60,7 @@ async function init(root: HTMLElement) {
   const INK = token('--ink');
   const INK_DIM = token('--ink-dim');
   const INK_FAINT = token('--ink-faint');
+  const GROUND = token('--ground');
   const RETIRED_DIM = parseFloat(token('--retired-dim')) || 0.38;
   const FONT_DATA = token('--font-data');
 
@@ -155,8 +156,8 @@ async function init(root: HTMLElement) {
   const YEAR = 365.25 * 86400 * 1000;
   const T0 = Date.UTC(2000, 0, 1); // when he started coding
   const NOW = Date.now();
-  const DEFAULT_BEHIND = 7 * YEAR;
-  const DEFAULT_AHEAD = 1 * YEAR;
+  const DEFAULT_BEHIND = 4 * YEAR;
+  const DEFAULT_AHEAD = 4 * YEAR;
   const FADE_YEARS = 6; // relevance decays to zero this many years past the window
   let focus = NOW;
   let behind = DEFAULT_BEHIND;
@@ -198,10 +199,11 @@ async function init(root: HTMLElement) {
   const fromPct = (p: number) => T0 + (Math.min(1, Math.max(0, p)) * (NOW - T0));
   const renderTimeline = () => {
     tl.handle.style.left = `${pct(focus)}%`;
-    const l = Math.max(0, pct(focus - behind));
-    const r = Math.min(100, pct(focus + ahead));
+    // true width always; overhang past either end is clipped, never squashed
+    const l = pct(focus - behind);
+    const r = pct(focus + ahead);
     tl.region.style.left = `${l}%`;
-    tl.region.style.width = `${Math.max(0, r - l)}%`;
+    tl.region.style.width = `${r - l}%`;
     const y = new Date(focus).getUTCFullYear();
     tl.readout.textContent = focus > NOW - 30 * 86400000 ? 'now' : String(y);
   };
@@ -267,7 +269,7 @@ async function init(root: HTMLElement) {
     if (dragMode === 'scrub') focus = Math.min(NOW, Math.max(T0, t));
     else if (dragMode === 'region') focus = Math.min(NOW, Math.max(T0, t - grabOffset));
     else if (dragMode === 'edgeL') behind = Math.max(0.5 * YEAR, focus - t);
-    else ahead = Math.max(0.25 * YEAR, t - focus);
+    else ahead = Math.max(0.5 * YEAR, t - focus);
     renderTimeline();
     showBubble();
   });
@@ -441,22 +443,47 @@ async function init(root: HTMLElement) {
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
 
-    // cluster labels: only for clusters with 2+ nodes visible in this era,
-    // positioned at the centroid of those visible members
-    ctx.textAlign = 'center';
+    // cluster boundaries: a faint rounded outline around each domain's
+    // visible members, label sitting ON the border like a fieldset legend.
+    // Only drawn when 2+ members are visible in this era.
     for (const d of domains) {
       const members = data.nodes.filter(
         (n) => n.domain === d && matchesFilter(n) && relevance(n) > 0.5,
       );
       if (members.length < 2) continue;
-      const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
-      const minY = Math.min(...members.map((n) => n.y ?? 0));
-      ctx.font = `600 ${13 / transform.k}px ${FONT_DATA}`;
-      ctx.fillStyle = lamp(d);
-      ctx.globalAlpha = 0.25;
-      ctx.fillText(d.toUpperCase(), cx, minY - 40 / transform.k);
+      const pad = 26;
+      const x0 = Math.min(...members.map((n) => (n.x ?? 0) - radiusOf(n))) - pad;
+      const x1 = Math.max(...members.map((n) => (n.x ?? 0) + radiusOf(n))) + pad;
+      const y0 = Math.min(...members.map((n) => (n.y ?? 0) - radiusOf(n))) - pad;
+      const y1 = Math.max(...members.map((n) => (n.y ?? 0) + radiusOf(n))) + pad + 10; // room for node labels
+      const color = lamp(d);
+
+      ctx.beginPath();
+      ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 14);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.035;
+      ctx.fill();
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1 / transform.k;
+      ctx.stroke();
+
+      // legend-style label: breaks the top border
+      const size = 10.5 / transform.k;
+      ctx.font = `600 ${size}px ${FONT_DATA}`;
+      const text = d.toUpperCase();
+      const tw = ctx.measureText(text).width;
+      const lx = x0 + 14;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = GROUND;
+      ctx.fillRect(lx - 5 / transform.k, y0 - size * 0.75, tw + 10 / transform.k, size * 1.5);
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = color;
+      ctx.textAlign = 'left';
+      ctx.fillText(text, lx, y0 + size * 0.35);
     }
     ctx.globalAlpha = 1;
+    ctx.textAlign = 'center';
 
     // edges: dashed threads
     ctx.lineWidth = 1 / transform.k;

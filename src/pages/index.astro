@@ -103,9 +103,11 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     <div id="timeline" class="data" aria-label="Time travel">
       <div id="tl-track">
         <div id="tl-ticks"></div>
-        <div id="tl-region" title="drag through time">
-          <div class="tl-edge" id="tl-edge-l" title="stretch how far back stays relevant"></div>
-          <div class="tl-edge" id="tl-edge-r" title="stretch how far ahead stays relevant"></div>
+        <div id="tl-clip">
+          <div id="tl-region" title="drag through time">
+            <div class="tl-edge" id="tl-edge-l" title="stretch how far back stays relevant"></div>
+            <div class="tl-edge" id="tl-edge-r" title="stretch how far ahead stays relevant"></div>
+          </div>
         </div>
         <div id="tl-handle"></div>
         <div id="tl-bubble" hidden></div>
@@ -502,6 +504,12 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     transform: translateX(-50%);
     font-size: 0.62rem;
     color: var(--ink-faint);
+  }
+  /* the band keeps its true width; the clip trims overhang cleanly at the ends */
+  #tl-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
   }
   #tl-region {
     position: absolute;
