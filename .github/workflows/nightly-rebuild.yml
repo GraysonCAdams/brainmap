@@ -1,0 +1,16 @@
+name: nightly rebuild
+# Re-deploys the site every night so GitHub enrichment (freshness glow,
+# last-active dates) stays current without any content change.
+on:
+  schedule:
+    - cron: "17 9 * * *" # 09:17 UTC daily; odd minute avoids the top-of-hour rush
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Cloudflare Pages deploy hook
+        run: curl -fsS -X POST "$DEPLOY_HOOK_URL" > /dev/null
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.CF_PAGES_DEPLOY_HOOK_URL }}
