@@ -9,7 +9,6 @@ started: 2026-08-02
 repo: GraysonCAdams/brainmap
 links: []
 tech: [astro, d3-force, canvas, cloudflare-pages]
-featured: 1
 ---
 
 ## Problem

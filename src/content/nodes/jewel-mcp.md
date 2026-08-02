@@ -8,7 +8,7 @@ tags: [apps]
 started: 2026-05-15
 links: [mcp-gateway]
 tech: [mcp, typescript, reverse-engineering]
-featured: 3
+featured: 4
 ---
 
 > Draft placeholder seeded during construction; the real write-up lands soon.
