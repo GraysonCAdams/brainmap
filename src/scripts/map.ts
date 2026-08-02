@@ -234,8 +234,6 @@ async function init(root: HTMLElement) {
     edgeL: document.getElementById('tl-edge-l') as HTMLElement,
     edgeR: document.getElementById('tl-edge-r') as HTMLElement,
     handle: document.getElementById('tl-handle') as HTMLElement,
-    bubble: document.getElementById('tl-bubble') as HTMLElement,
-    readout: document.getElementById('tl-readout') as HTMLElement,
     reset: document.getElementById('tl-reset') as HTMLElement,
   };
   const pct = (t: number) => ((t - T0) / (NOW - T0)) * 100;
@@ -251,8 +249,6 @@ async function init(root: HTMLElement) {
     const r = pct(focus + ahead);
     tl.region.style.left = `${l}%`;
     tl.region.style.width = `${r - l}%`;
-    const y = new Date(focus).getUTCFullYear();
-    tl.readout.textContent = focus > NOW - 30 * 86400000 ? 'now' : String(y);
   };
   // tick marks every 5 years
   for (let y = 2000; y <= new Date(NOW).getUTCFullYear(); y += 5) {
@@ -272,17 +268,6 @@ async function init(root: HTMLElement) {
     const r = tl.track.getBoundingClientRect();
     return (ev.clientX - r.left) / r.width;
   };
-  // Year bubble: appears above the scrubber during any interaction.
-  let bubbleTimer = 0;
-  const showBubble = () => {
-    const y = new Date(focus).getUTCFullYear();
-    tl.bubble.textContent = focus > NOW - 30 * 86400000 ? 'now' : String(y);
-    tl.bubble.style.left = `${pct(focus)}%`;
-    tl.bubble.hidden = false;
-    clearTimeout(bubbleTimer);
-    bubbleTimer = window.setTimeout(() => (tl.bubble.hidden = true), 900);
-  };
-
   // Interaction model:
   //   drag the window band  -> slide the whole window through time (fixed width)
   //   drag its edges        -> stretch behind/ahead
@@ -309,7 +294,6 @@ async function init(root: HTMLElement) {
       focus = Math.min(NOW, Math.max(T0, t));
     }
     renderTimeline();
-    showBubble();
   });
   tl.track.addEventListener('pointermove', (ev) => {
     if (!dragMode) return;
@@ -319,7 +303,6 @@ async function init(root: HTMLElement) {
     else if (dragMode === 'edgeL') behind = Math.max(0.5 * YEAR, focus - t);
     else ahead = Math.max(0.5 * YEAR, t - focus);
     renderTimeline();
-    showBubble();
   });
   tl.track.addEventListener('pointerup', (ev) => {
     // A tap on the band (no real movement) is a jump, not a null drag.
@@ -330,7 +313,6 @@ async function init(root: HTMLElement) {
     ) {
       focus = Math.min(NOW, Math.max(T0, fromPct(trackX(ev))));
       renderTimeline();
-      showBubble();
     }
     dragMode = null;
   });
@@ -546,6 +528,18 @@ async function init(root: HTMLElement) {
     raf = requestAnimationFrame(draw);
     if (document.hidden) return;
     ctx.clearRect(0, 0, width, height);
+
+    // The year, dead center, everything floating over it. This IS the time
+    // readout; it counts up during the intro sweep and tracks the scrubber.
+    ctx.font = `600 ${Math.min(width, height) * 0.3}px ${FONT_DATA}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = INK;
+    ctx.globalAlpha = 0.05;
+    ctx.fillText(String(new Date(focus).getUTCFullYear()), width / 2, height / 2);
+    ctx.globalAlpha = 1;
+    ctx.textBaseline = 'alphabetic';
+
     ctx.save();
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);

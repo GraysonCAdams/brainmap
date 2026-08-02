@@ -6,16 +6,16 @@
     "freshness": 0.971,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T17:34:27.842Z"
+    "checkedAt": "2026-08-02T17:37:08.153Z"
   },
   "brainmap": {
     "repo": "GraysonCAdams/brainmap",
     "missing": false,
-    "pushedAt": "2026-08-02T17:29:18Z",
+    "pushedAt": "2026-08-02T17:34:56Z",
     "freshness": 1,
-    "language": "Astro",
+    "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T17:34:28.028Z"
+    "checkedAt": "2026-08-02T17:37:08.306Z"
   },
   "ente-jellyfin": {
     "repo": "GraysonCAdams/ente-jellyfin",
@@ -24,6 +24,6 @@
     "freshness": 0.927,
     "language": "Go",
     "stars": 0,
-    "checkedAt": "2026-08-02T17:34:28.226Z"
+    "checkedAt": "2026-08-02T17:37:08.453Z"
   }
 }

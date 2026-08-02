@@ -122,9 +122,7 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
           </div>
         </div>
         <div id="tl-handle"></div>
-        <div id="tl-bubble" hidden></div>
       </div>
-      <span id="tl-readout">now</span>
       <button id="tl-reset" title="reset to today" aria-label="Reset to today">&#8634;</button>
     </div>
 
@@ -467,21 +465,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   #tl-reset:hover {
     color: var(--ink);
   }
-  #tl-bubble {
-    position: absolute;
-    bottom: 26px;
-    transform: translateX(-50%);
-    background: var(--surface-raised);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    color: var(--ink);
-    padding: 1px 7px;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-  #tl-bubble[hidden] {
-    display: none;
-  }
   #tl-track {
     position: relative;
     flex: 1;
@@ -564,12 +547,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     content: '';
     position: absolute;
     inset: -8px -12px;
-  }
-  #tl-readout {
-    min-width: 3ch;
-    text-align: right;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
   }
 
   .key-rows {
