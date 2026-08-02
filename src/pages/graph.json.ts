@@ -39,6 +39,7 @@ export const GET: APIRoute = async () => {
       tagline: n.data.tagline,
       status: n.data.status,
       domain: n.data.domain,
+      tags: n.data.tags,
       visibility: n.data.visibility,
     };
     if (n.data.visibility === 'teaser') return base;

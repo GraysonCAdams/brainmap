@@ -17,12 +17,16 @@
      Validated (dataviz six checks, dark surface #0C1214): lightness band,
      chroma floor, CVD separation, normal-vision floor, contrast. Re-run the
      validator before changing any of these. */
-  --lamp-ai-tooling: #0aa99b;
   --lamp-home-automation: #ba8824;
-  --lamp-media: #a062bb;
-  --lamp-finance: #5ca04d;
-  --lamp-infra: #437cc3;
-  --lamp-web: #cc6349;
+  --lamp-security: #3a73b9;
+  --lamp-utilities: #62a653;
+  --lamp-media: #9a5cb4;
+  --lamp-ai-tooling: #00a295;
+  --lamp-apps: #b14a31;
+  --lamp-infra: #3a98c0;
+  --lamp-workflows: #b4608a;
+  /* prompt-glyph accent (wordmark user@, $ signs) */
+  --prompt: #62a653;
 
   /* status is encoded by lamp treatment, not extra hues:
      idea = hollow, building = pulsing, shipped = solid, retired = dimmed */

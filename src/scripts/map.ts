@@ -119,11 +119,34 @@ async function init(root: HTMLElement) {
   let hovered: GraphNode | null = null;
   let selected: GraphNode | null = null;
 
+  // Domain filtering: a node matches its primary domain and every tag.
+  const activeDomains = new Set<string>();
+  const matchesFilter = (n: GraphNode) =>
+    activeDomains.size === 0 ||
+    activeDomains.has(n.domain) ||
+    (n.tags ?? []).some((t) => activeDomains.has(t));
+  const panel = document.getElementById('domain-panel');
+  panel?.querySelectorAll<HTMLButtonElement>('[data-domain-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.domainFilter!;
+      const on = !activeDomains.has(d);
+      if (on) activeDomains.add(d);
+      else activeDomains.delete(d);
+      btn.setAttribute('aria-pressed', String(on));
+    });
+  });
+  const toggle = document.getElementById('panel-toggle');
+  toggle?.addEventListener('click', () => {
+    const open = panel!.toggleAttribute('data-open');
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+
   const pick = (px: number, py: number): GraphNode | null => {
     const [x, y] = transform.invert([px, py]);
     let best: GraphNode | null = null;
     let bestD = Infinity;
     for (const n of data.nodes) {
+      if (!matchesFilter(n)) continue; // filtered-out nodes aren't clickable
       const dx = (n.x ?? 0) - x;
       const dy = (n.y ?? 0) - y;
       const d = Math.hypot(dx, dy);
@@ -208,8 +231,9 @@ async function init(root: HTMLElement) {
       const s = e.source as GraphNode;
       const g = e.target as GraphNode;
       const active = hovered === s || hovered === g || selected === s || selected === g;
+      const filtered = !matchesFilter(s) || !matchesFilter(g);
       ctx.strokeStyle = active ? INK_DIM : INK_FAINT;
-      ctx.globalAlpha = active ? 0.9 : 0.45;
+      ctx.globalAlpha = filtered ? 0.06 : active ? 0.9 : 0.45;
       ctx.beginPath();
       ctx.moveTo(s.x ?? 0, s.y ?? 0);
       ctx.lineTo(g.x ?? 0, g.y ?? 0);
@@ -225,11 +249,13 @@ async function init(root: HTMLElement) {
       const color = n.visibility === 'teaser' ? INK_FAINT : lamp(n.domain);
       const isActive = hovered === n || selected === n;
 
+      const visible = matchesFilter(n);
       let alpha = 1;
       if (n.status === 'retired') alpha = RETIRED_DIM;
       if (n.status === 'building' && !reducedMotion) {
         alpha = 0.62 + 0.38 * Math.sin(t / 700 + (n.index ?? 0));
       }
+      if (!visible) alpha = 0.07;
       ctx.globalAlpha = alpha;
 
       if (n.visibility === 'teaser') {
@@ -269,7 +295,7 @@ async function init(root: HTMLElement) {
 
       // labels: always present (identity never color-alone), fading at far zoom
       const labelAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
-      if (labelAlpha > 0.02) {
+      if (labelAlpha > 0.02 && visible) {
         ctx.globalAlpha = alpha * labelAlpha;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
         ctx.fillStyle = isActive ? INK : INK_DIM;

@@ -3,16 +3,18 @@ import { glob } from 'astro/loaders';
 
 /**
  * Domains cluster the graph and drive the color encoding.
- * Adding a domain: extend this tuple, then give it a color token in the
- * design tokens (one place each).
+ * Adding a domain: extend this tuple, then give it a validated color token in
+ * the design tokens (one place each; re-run the dataviz palette validator).
  */
 export const DOMAINS = [
-  'ai-tooling',
   'home-automation',
+  'security',
+  'utilities',
   'media',
-  'finance',
+  'ai-tooling',
+  'apps',
   'infra',
-  'web',
+  'workflows',
 ] as const;
 
 export const STATUSES = ['idea', 'building', 'shipped', 'retired'] as const;
@@ -36,6 +38,11 @@ const nodes = defineCollection({
     status: z.enum(STATUSES),
     domain: z.enum(DOMAINS),
     started: z.coerce.date(),
+    /**
+     * Secondary domains. `domain` stays singular (one lamp color, one cluster
+     * home on the map); tags make the node match additional domain filters.
+     */
+    tags: z.array(z.enum(DOMAINS)).default([]),
     /** owner/repo on GitHub; drives build-time freshness enrichment */
     repo: z
       .string()

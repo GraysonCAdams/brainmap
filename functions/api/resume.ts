@@ -28,7 +28,6 @@ interface Env {
 
 const GLOBAL_LIMIT = 5;
 const IP_LIMIT = 2;
-const MAX_SLUGS = 6;
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -82,20 +81,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json(503, { error: 'Resume generator is not configured yet.' });
   }
 
-  let body: { slugs?: unknown; interest?: unknown; turnstileToken?: unknown };
+  let body: { interest?: unknown; turnstileToken?: unknown };
   try {
     body = await request.json();
   } catch {
     return json(400, { error: 'Bad request.' });
   }
-
-  const slugs = Array.isArray(body.slugs)
-    ? body.slugs.filter((s): s is string => typeof s === 'string' && /^[a-z0-9-]{1,64}$/.test(s))
-    : [];
   const interest = typeof body.interest === 'string' ? body.interest.slice(0, 500) : '';
-  if (slugs.length === 0 || slugs.length > MAX_SLUGS) {
-    return json(400, { error: `Pick between 1 and ${MAX_SLUGS} projects.` });
-  }
 
   // Turnstile
   const verify = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
@@ -130,15 +122,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     env.RESUME_KV.put(ipKey, String(ipCount + 1), { expirationTtl: 172800 }),
   ]);
 
-  // Source material: the deployed markdown mirrors (single source of truth).
+  // Auto-source: every public node's markdown mirror is candidate material;
+  // the model selects the most relevant projects for the stated interest.
+  const graphRes = await env.ASSETS.fetch(new URL('/graph.json', request.url));
+  if (!graphRes.ok) return json(502, { error: 'Site data unavailable.' });
+  const graph = (await graphRes.json()) as {
+    nodes: { id: string; visibility: string; featured?: number | null }[];
+  };
+  const publicSlugs = graph.nodes
+    .filter((n) => n.visibility === 'public')
+    .sort((a, b) => (a.featured ?? 99) - (b.featured ?? 99))
+    .map((n) => n.id)
+    .slice(0, 40);
   const nodeDocs = await Promise.all(
-    slugs.map(async (slug) => {
+    publicSlugs.map(async (slug) => {
       const res = await env.ASSETS.fetch(new URL(`/idea/${slug}.md`, request.url));
       return res.ok ? `--- ${slug} ---\n${await res.text()}` : null;
     }),
   );
-  const material = nodeDocs.filter(Boolean).join('\n\n');
-  if (!material) return json(400, { error: 'None of those projects were found.' });
+  const material = nodeDocs.filter(Boolean).join('\n\n').slice(0, 120_000);
+  if (!material) return json(502, { error: 'No project material available.' });
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await client.beta.messages.create({
@@ -155,14 +158,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       'HARD RULES:',
       '- Never invent facts. Every bullet must be grounded in the FACTS or PROJECT MATERIAL provided. You may rephrase and re-order to emphasize the visitor\'s interests; you may never add employers, titles, dates, metrics, or technologies that are not in the source.',
       '- skillsets: exactly 5 rows, keep the original labels, re-order items within each value to lead with what is most relevant.',
-      '- selectedProjects: one entry per selected project (order by relevance), title verbatim from the material, 1-2 bullets each drawn from its Problem/Approach/Edge cases/Outcome; write in resume voice (past-tense verb first).',
+      '- selectedProjects: YOU choose the 2-4 projects from the PROJECT MATERIAL most relevant to the visitor\'s stated interest (if none stated, choose the strongest shipped work). Title verbatim from the material, 1-2 bullets each drawn from its Problem/Approach/Edge cases/Outcome; write in resume voice (past-tense verb first). Skip placeholder/draft material that lacks substance.',
       '- experienceBullets: one entry per experience id, bullets chosen from that job\'s original bullets (rephrasing allowed, count must not exceed the original count). Total across all jobs at most 12 so everything fits on one page; keep at least 1 bullet per job and weight the extra bullets toward the most relevant jobs.',
       '- No em dashes in output text; use plain ASCII punctuation.',
     ].join('\n'),
     messages: [
       {
         role: 'user',
-        content: `FACTS (canonical, JSON):\n${JSON.stringify(facts)}\n\nPROJECT MATERIAL (visitor selected these):\n${material}\n\nVISITOR'S STATED INTEREST: ${interest || '(none given)'}\n\nProduce the tailored resume text.`,
+        content: `FACTS (canonical, JSON):\n${JSON.stringify(facts)}\n\nPROJECT MATERIAL (all public projects; select the most relevant):\n${material}\n\nVISITOR'S STATED INTEREST: ${interest || '(none given)'}\n\nProduce the tailored resume text.`,
       },
     ],
   });

@@ -1,7 +1,19 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import { SITE } from '../site.config';
+import { DOMAINS } from '../content.config';
+
+// Counts include tags: a node matches every domain it carries.
+const all = await getCollection('nodes');
+const counts = Object.fromEntries(
+  DOMAINS.map((d) => [
+    d,
+    all.filter((n) => n.data.domain === d || n.data.tags.includes(d)).length,
+  ]),
+);
+const panelDomains = DOMAINS.filter((d) => counts[d] > 0);
 ---
 
 <Base>
@@ -38,6 +50,28 @@ import { SITE } from '../site.config';
         </div>
       </section>
     </div>
+
+    <aside id="domain-panel" class="data" aria-label="Filter by domain">
+      <button id="panel-toggle" aria-expanded="false">[ domains ]</button>
+      <div class="panel-body">
+        <p class="panel-title">## domains</p>
+        {
+          panelDomains.map((d) => (
+            <button
+              class="drow"
+              data-domain-filter={d}
+              aria-pressed="false"
+              style={`--lamp: var(--lamp-${d})`}
+            >
+              <i class="dot" aria-hidden="true" />
+              <span class="dname">{d}</span>
+              <span class="dcount">{counts[d]}</span>
+            </button>
+          ))
+        }
+        <p class="panel-hint">multi-tagged ideas match every domain they touch</p>
+      </div>
+    </aside>
 
     <footer class="legend data" aria-label="How to read the map">
       <span><i class="key key-idea"></i>idea</span>
@@ -175,7 +209,7 @@ import { SITE } from '../site.config';
     margin: 0;
   }
   .intro-cmd .prompt {
-    color: var(--lamp-finance);
+    color: var(--prompt);
   }
   .intro-name {
     font-size: var(--text-lg);
@@ -213,6 +247,78 @@ import { SITE } from '../site.config';
   .intro-actions a:hover {
     color: var(--ink);
     text-decoration: underline;
+  }
+
+  #domain-panel {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-4);
+    width: 13rem;
+    font-size: var(--text-xs);
+  }
+  #panel-toggle {
+    display: none;
+    font: inherit;
+    color: var(--ink-dim);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+  }
+  .panel-body {
+    background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-3);
+    display: grid;
+    gap: 2px;
+  }
+  .panel-title {
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    margin: 0 0 var(--space-2);
+  }
+  .drow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: inherit;
+    color: var(--ink-dim);
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: var(--radius-chip);
+    padding: 3px var(--space-2);
+    cursor: pointer;
+    text-align: left;
+  }
+  .drow:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+  .drow[aria-pressed='true'] {
+    color: var(--ink);
+    border-left-color: var(--lamp);
+    background: var(--surface);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--lamp);
+    flex: none;
+  }
+  .dname {
+    flex: 1;
+  }
+  .dcount {
+    color: var(--ink-faint);
+  }
+  .panel-hint {
+    color: var(--ink-faint);
+    margin: var(--space-2) 0 0;
+    font-size: 0.68rem;
   }
 
   .legend {
@@ -272,7 +378,21 @@ import { SITE } from '../site.config';
       right: var(--space-4);
       width: auto;
     }
+    #panel-toggle {
+      display: inline-block;
+    }
+    #domain-panel .panel-body {
+      display: none;
+    }
+    #domain-panel[data-open] .panel-body {
+      display: grid;
+      margin-top: var(--space-2);
+    }
     .legend {
+      left: auto;
+      right: var(--space-4);
+      justify-content: flex-end;
+      max-width: 55%;
       bottom: auto;
       top: var(--space-3);
     }

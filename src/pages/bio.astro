@@ -67,7 +67,10 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
         <tbody>
           {
             nodes.map((n) => (
-              <tr data-status={n.data.status} data-domain={n.data.domain}>
+              <tr
+                data-status={n.data.status}
+                data-domain={[n.data.domain, ...n.data.tags].join(' ')}
+              >
                 <td class="col-lamp">
                   <Lamp domain={n.data.domain} status={n.data.status} />
                 </td>
@@ -75,7 +78,10 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
                   <a href={`/idea/${n.id}`}>{n.data.title}</a>
                 </td>
                 <td class="col-tagline">{n.data.tagline}</td>
-                <td class="data col-domain">{n.data.domain}</td>
+                <td class="data col-domain">
+                  {n.data.domain}
+                  {n.data.tags.length > 0 && <span class="tags">+{n.data.tags.join(' +')}</span>}
+                </td>
                 <td class="data col-date">{fmt(n.data.started)}</td>
               </tr>
             ))
@@ -97,7 +103,8 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
     const domains = on('data-filter-domain');
     for (const r of rows) {
       const okS = statuses.length === 0 || statuses.includes(r.dataset.status ?? '');
-      const okD = domains.length === 0 || domains.includes(r.dataset.domain ?? '');
+      const rowDomains = (r.dataset.domain ?? '').split(' ');
+      const okD = domains.length === 0 || domains.some((d) => rowDomains.includes(d ?? ''));
       r.hidden = !(okS && okD);
     }
   };
@@ -232,6 +239,10 @@ const fmt = (d: Date) => d.toISOString().slice(0, 7);
     color: var(--ink-faint);
     font-size: var(--text-xs);
     white-space: nowrap;
+  }
+  .col-domain .tags {
+    color: var(--line);
+    margin-left: var(--space-1);
   }
 
   @media (max-width: 640px) {

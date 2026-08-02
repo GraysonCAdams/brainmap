@@ -2,7 +2,8 @@
 title: Brain Map
 tagline: This site. A living graph of ideas and what became of them.
 status: building
-domain: web
+domain: apps
+tags: [ai-tooling]
 started: 2026-08-02
 repo: GraysonCAdams/brainmap
 links: []

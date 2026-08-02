@@ -20,7 +20,18 @@ const MARGIN = 50;
 const WIDTH = PAGE_W - MARGIN * 2;
 const BLACK = rgb(0, 0, 0);
 
-export async function buildResumePdf(gen: GeneratedContent): Promise<Uint8Array> {
+/** Identity content: the resume as advertised, straight from canonical facts. */
+export function currentResumeContent(): GeneratedContent {
+  return {
+    skillsets: facts.skillsets,
+    selectedProjects: [],
+    experienceBullets: facts.experience.map((e) => ({ id: e.id, bullets: e.bullets })),
+  };
+}
+
+export async function buildResumePdf(
+  gen: GeneratedContent,
+): Promise<{ bytes: Uint8Array; pageCount: number }> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${facts.name} - Resume`);
   const helv = await doc.embedFont(StandardFonts.Helvetica);
@@ -161,5 +172,5 @@ export async function buildResumePdf(gen: GeneratedContent): Promise<Uint8Array>
   const eduDateW = italic.widthOfTextAtSize(edu.dates, 9.3);
   page.drawText(edu.dates, { x: PAGE_W - MARGIN - eduDateW, y, size: 9.3, font: italic, color: BLACK });
 
-  return doc.save();
+  return { bytes: await doc.save(), pageCount: doc.getPageCount() };
 }

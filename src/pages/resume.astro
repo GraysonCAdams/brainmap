@@ -1,56 +1,51 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import Lamp from '../components/Lamp.astro';
 
-const nodes = (await getCollection('nodes', (n) => n.data.visibility === 'public')).sort(
-  (a, b) => b.data.started.valueOf() - a.data.started.valueOf(),
-);
 const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 ---
 
 <Base
-  title="Tailored resume"
-  description="Pick the projects you care about and download a resume tailored to them."
+  title="Generate my resume"
+  description="Generate a resume tailored to what you're hiring for, or download the current one."
 >
   <Header />
   <main>
-    <h1>Build me a resume</h1>
+    <h1>generate my resume</h1>
     <p class="lede">
-      Hiring, and curious about specific things I've built? Pick up to six projects and I'll
-      generate a one-page resume emphasizing them, in my real resume's format. The text is tailored
-      by Claude from the write-ups on this site; it never invents facts.
-      <span class="data">Shared limit: 5 generations per day, on my dime.</span>
+      Tell me what you're hiring for and I'll assemble a one-page resume in my real resume's
+      format, auto-selecting the most relevant projects from this site. Every generation is vetted
+      before download: facts come only from my canonical record, and any quantified claim that
+      can't be traced to a source is removed.
+      <span class="data">Shared limit: 5 tailored generations per day, on my dime.</span>
     </p>
 
     <form id="resume-form">
-      <fieldset>
-        <legend class="data">projects to emphasize (1-6)</legend>
-        <ul>
-          {
-            nodes.map((n) => (
-              <li>
-                <label>
-                  <input type="checkbox" name="slug" value={n.id} />
-                  <Lamp domain={n.data.domain} status={n.data.status} />
-                  <span class="title">{n.data.title}</span>
-                  <span class="tagline">{n.data.tagline}</span>
-                </label>
-              </li>
-            ))
-          }
-        </ul>
-      </fieldset>
-
       <label class="interest">
-        <span class="data">what are you hiring for? (optional, helps the tailoring)</span>
+        <span class="data">what are you hiring for? (optional)</span>
         <input name="interest" maxlength="500" placeholder="e.g. platform engineering lead, K8s + IaC heavy" />
       </label>
 
       {sitekey && <div class="cf-turnstile" data-sitekey={sitekey} data-theme="dark" />}
-      <button type="submit">Generate resume PDF</button>
+
+      <div class="actions">
+        <button type="submit">[ generate tailored resume ]</button>
+        <button type="button" id="download-current">[ download current resume ]</button>
+      </div>
+      <p class="alt-hint data">
+        The current resume is the one I'm advertising today: no generation, no wait, no limit.
+      </p>
+
+      <ol id="gen-steps" class="data" hidden>
+        <li data-step="bot"><span class="mark"></span>anti-bot check</li>
+        <li data-step="gen"><span class="mark"></span>tailoring text from my write-ups</li>
+        <li data-step="facts"><span class="mark"></span>employers, titles, dates: canonical record only (never generated)</li>
+        <li data-step="volume"><span class="mark"></span>bullet volume capped at the original resume's</li>
+        <li data-step="numbers"><span class="mark"></span>quantified claims cross-checked against source</li>
+        <li data-step="fit"><span class="mark"></span>one-page fit</li>
+        <li data-step="done"><span class="mark"></span>download</li>
+      </ol>
       <p class="status data" role="status" aria-live="polite"></p>
     </form>
   </main>
@@ -60,50 +55,121 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 {sitekey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
 
 <script>
+  import type { GeneratedContent } from '../scripts/resume-pdf';
+
   const form = document.getElementById('resume-form') as HTMLFormElement;
   const status = form.querySelector('.status') as HTMLElement;
+  const steps = document.getElementById('gen-steps') as HTMLElement;
 
+  type StepState = 'pending' | 'running' | 'ok' | 'fixed' | 'fail';
+  const setStep = (id: string, state: StepState, note?: string) => {
+    const li = steps.querySelector<HTMLElement>(`[data-step="${id}"]`);
+    if (!li) return;
+    li.dataset.state = state;
+    const mark = li.querySelector('.mark') as HTMLElement;
+    mark.textContent =
+      state === 'ok' ? '[x] ' : state === 'fixed' ? '[~] ' : state === 'running' ? '[.] ' : state === 'fail' ? '[!] ' : '[ ] ';
+    if (note) {
+      let n = li.querySelector<HTMLElement>('.note');
+      if (!n) {
+        n = document.createElement('span');
+        n.className = 'note';
+        li.appendChild(n);
+      }
+      n.textContent = ` — ${note}`;
+    }
+  };
+  const resetSteps = () => {
+    steps.hidden = false;
+    for (const li of steps.querySelectorAll<HTMLElement>('li')) {
+      li.dataset.state = 'pending';
+      (li.querySelector('.mark') as HTMLElement).textContent = '[ ] ';
+      li.querySelector('.note')?.remove();
+    }
+  };
+
+  const download = (bytes: Uint8Array, name: string) => {
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // Path 1: the resume as advertised. Pure client-side, no API, no limit.
+  document.getElementById('download-current')?.addEventListener('click', async () => {
+    status.textContent = 'rendering…';
+    const { buildResumePdf, currentResumeContent } = await import('../scripts/resume-pdf');
+    const { bytes } = await buildResumePdf(currentResumeContent());
+    download(bytes, 'Grayson Adams - Resume.pdf');
+    status.textContent = 'done: check your downloads.';
+  });
+
+  // Path 2: tailored generation with the vetting pipeline.
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const slugs = [...form.querySelectorAll<HTMLInputElement>('input[name=slug]:checked')].map(
-      (i) => i.value,
-    );
-    if (slugs.length === 0 || slugs.length > 6) {
-      status.textContent = 'Pick between 1 and 6 projects.';
-      return;
-    }
+    resetSteps();
+    status.textContent = '';
     const turnstileToken =
       form.querySelector<HTMLInputElement>('[name=cf-turnstile-response]')?.value ?? '';
     const interest = (form.elements.namedItem('interest') as HTMLInputElement).value;
 
-    status.textContent = 'Generating (this can take ~30 seconds)…';
+    setStep('bot', 'running');
+    setStep('gen', 'running');
     try {
-      const res = await fetch('/api/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slugs, interest, turnstileToken }),
-      });
+      // Corpus fetch overlaps the generation round-trip.
+      const [{ buildCorpus, vetGeneration, trimForFit }, pdfMod, res] = await Promise.all([
+        import('../scripts/resume-validate'),
+        import('../scripts/resume-pdf'),
+        fetch('/api/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interest, turnstileToken }),
+        }),
+      ]);
       const body = await res.json();
       if (!res.ok) {
+        setStep(res.status === 403 ? 'bot' : 'gen', 'fail');
         status.textContent = body.error ?? 'Generation failed.';
         return;
       }
-      status.textContent = 'Rendering PDF…';
-      // pdf-lib is heavy; load it only when someone actually generates
-      const { buildResumePdf } = await import('../scripts/resume-pdf');
-      const bytes = await buildResumePdf(body.result);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'Grayson Adams - Resume.pdf';
-      a.click();
-      URL.revokeObjectURL(a.href);
+      setStep('bot', 'ok');
+      setStep('gen', 'ok');
+
+      // Structural guarantee, stated as a check because it is one: the PDF
+      // builder only reads employers/titles/dates/education from facts.
+      setStep('facts', 'ok');
+
+      const corpus = await buildCorpus();
+      const report = vetGeneration(body.result as GeneratedContent, corpus);
+      setStep('volume', 'ok');
+      setStep(
+        'numbers',
+        report.removedClaims.length > 0 ? 'fixed' : 'ok',
+        report.removedClaims.length > 0
+          ? `${report.numbersChecked} checked, ${report.removedClaims.length} unverifiable claim${report.removedClaims.length === 1 ? '' : 's'} removed`
+          : `${report.numbersChecked} checked`,
+      );
+
+      setStep('fit', 'running');
+      let built = await pdfMod.buildResumePdf(report.gen);
+      let trims = 0;
+      while (built.pageCount > 1 && trims < 10 && trimForFit(report.gen)) {
+        trims++;
+        built = await pdfMod.buildResumePdf(report.gen);
+      }
+      setStep('fit', trims > 0 ? 'fixed' : 'ok', trims > 0 ? `trimmed ${trims} bullet${trims === 1 ? '' : 's'}` : undefined);
+
+      download(built.bytes, 'Grayson Adams - Resume (tailored).pdf');
+      setStep('done', 'ok');
       status.textContent =
         body.remainingToday !== undefined
-          ? `Done: check your downloads. ${body.remainingToday} generation${body.remainingToday === 1 ? '' : 's'} left today.`
-          : 'Done: check your downloads.';
+          ? `${body.remainingToday} generation${body.remainingToday === 1 ? '' : 's'} left today.`
+          : '';
     } catch {
-      status.textContent = 'Network error. Try again, or just email me.';
+      setStep('gen', 'fail');
+      status.textContent = 'Something broke. Grab the current resume instead, or email me.';
     }
   });
 </script>
@@ -113,11 +179,6 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     max-width: 40rem;
     margin: 0 auto;
     padding: var(--space-8) var(--space-4) var(--space-12);
-  }
-  h1 {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    font-weight: 400;
   }
   .lede {
     color: var(--ink-dim);
@@ -129,46 +190,13 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     font-size: var(--text-xs);
     color: var(--ink-faint);
   }
-  fieldset {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: var(--space-3) var(--space-4);
-    margin: 0 0 var(--space-4);
-  }
-  legend {
-    font-size: var(--text-xs);
-    color: var(--ink-faint);
-    letter-spacing: 0.08em;
-    padding: 0 var(--space-2);
-  }
-  ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  form {
     display: grid;
-    gap: var(--space-2);
-  }
-  label {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    cursor: pointer;
-  }
-  input[type='checkbox'] {
-    accent-color: var(--ink);
-  }
-  .title {
-    font-weight: 500;
-    font-size: var(--text-sm);
-  }
-  .tagline {
-    color: var(--ink-faint);
-    font-size: var(--text-xs);
+    gap: var(--space-4);
   }
   .interest {
     display: grid;
     gap: var(--space-1);
-    margin-bottom: var(--space-4);
   }
   .interest span {
     font-size: var(--text-xs);
@@ -184,33 +212,81 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     border-radius: var(--radius-chip);
     padding: var(--space-2) var(--space-3);
   }
-  button {
-    font: inherit;
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .actions button {
+    font-family: var(--font-data);
     font-size: var(--text-sm);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+  }
+  .actions button[type='submit'] {
     color: var(--ground);
     background: var(--ink);
-    border: none;
-    border-radius: var(--radius-chip);
-    padding: var(--space-2) var(--space-4);
-    cursor: pointer;
-    margin-top: var(--space-3);
+    border: 1px solid var(--ink);
   }
-  button:hover {
+  .actions button[type='button'] {
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line);
+  }
+  .actions button:hover {
     opacity: 0.88;
+    color: var(--ink);
+  }
+  .actions button[type='submit']:hover {
+    color: var(--ground);
+  }
+  .alt-hint {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  #gen-steps[hidden] {
+    display: none;
+  }
+  #gen-steps {
+    list-style: none;
+    margin: var(--space-2) 0 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    background: var(--surface);
+    display: grid;
+    gap: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+  }
+  #gen-steps li[data-state='running'] {
+    color: var(--ink);
+  }
+  #gen-steps li[data-state='ok'] {
+    color: var(--ink-dim);
+  }
+  #gen-steps li[data-state='ok'] .mark {
+    color: var(--prompt);
+  }
+  #gen-steps li[data-state='fixed'] {
+    color: var(--ink-dim);
+  }
+  #gen-steps li[data-state='fixed'] .mark {
+    color: var(--lamp-home-automation);
+  }
+  #gen-steps li[data-state='fail'] {
+    color: var(--lamp-apps);
+  }
+  #gen-steps .note {
+    color: var(--ink-faint);
   }
   .status {
     font-size: var(--text-xs);
     color: var(--ink-dim);
     min-height: 1.2em;
-  }
-
-  @media (max-width: 640px) {
-    label {
-      flex-wrap: wrap;
-    }
-    .tagline {
-      flex-basis: 100%;
-      padding-left: 1.9rem;
-    }
+    margin: 0;
   }
 </style>
