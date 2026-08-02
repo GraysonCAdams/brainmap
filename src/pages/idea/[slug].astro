@@ -1,0 +1,33 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  // Teaser nodes get no page: presence on the map only.
+  const nodes = await getCollection('nodes', (n) => n.data.visibility === 'public');
+  return nodes.map((node) => ({ params: { slug: node.id }, props: { node } }));
+}
+
+const { node } = Astro.props;
+const { Content } = await render(node);
+---
+
+<Base title={node.data.title} description={node.data.tagline}>
+  <main>
+    <p><a href="/">&larr; map</a></p>
+    <h1>{node.data.title}</h1>
+    <p>{node.data.tagline}</p>
+    <p>
+      <strong>{node.data.status}</strong> · {node.data.domain} · since{' '}
+      {node.data.started.toISOString().slice(0, 10)}
+      {node.data.repo && (
+        <>
+          {' '}· <a href={`https://github.com/${node.data.repo}`}>{node.data.repo}</a>
+        </>
+      )}
+    </p>
+    <article>
+      <Content />
+    </article>
+  </main>
+</Base>

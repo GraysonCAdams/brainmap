@@ -1,0 +1,26 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { SITE } from '../site.config';
+
+// Placeholder index; real index mode lands with the design pass.
+const nodes = (await getCollection('nodes', (n) => n.data.visibility === 'public')).sort(
+  (a, b) => b.data.started.valueOf() - a.data.started.valueOf(),
+);
+---
+
+<Base>
+  <main>
+    <h1>{SITE.name}</h1>
+    <p>{SITE.description}</p>
+    <ul>
+      {
+        nodes.map((n) => (
+          <li>
+            <a href={`/idea/${n.id}`}>{n.data.title}</a> — {n.data.tagline} ({n.data.status})
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Base>
