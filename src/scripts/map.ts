@@ -444,11 +444,10 @@ async function init(root: HTMLElement) {
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
     tl.wrap?.classList.remove('tl-enter');
-    // Drop the narration caret too, or a blinking cursor is left stranded in
-    // the header after an interrupted tour.
-    document.querySelector('header')?.classList.remove('has-term');
-    const t = document.getElementById('term-line');
-    if (t) t.textContent = t.textContent;
+    // Drop the typing caret, or a blinking cursor is left stranded in the
+    // header after an interrupted tour.
+    const cmdEl = document.getElementById('term-cmd');
+    if (cmdEl) cmdEl.textContent = cmdEl.textContent;
     renderTimeline();
   };
   // The tour only starts once the whoami modal is gone; running it behind the
@@ -459,51 +458,41 @@ async function init(root: HTMLElement) {
   };
 
   if (!reducedMotion && !location.hash) {
-    const starts = [...startMsOf.values()].sort((a, b) => a - b);
-    const first = starts[0] ?? T0;
-    focus = first; // open ON the first dot, not on empty January 2000
+    // Open on an EMPTY map. Nothing has been loaded yet, so the canvas should
+    // show nothing until the command has actually run.
+    focus = T0 - YEAR;
     renderTimeline();
     sweepActive = true;
 
-    // Density-weighted progress curve: wall-clock spent near time t grows
-    // with how many ideas start near t.
-    const SAMPLES = 240;
-    const weights: number[] = [];
-    for (let i = 0; i < SAMPLES; i++) {
-      const t = first + ((NOW - first) * i) / (SAMPLES - 1);
-      const near = starts.filter((s) => Math.abs(s - t) < 1.5 * YEAR).length;
-      weights.push(1 + near * 1.6);
-    }
-    const cum: number[] = [0];
-    for (let i = 1; i < SAMPLES; i++) cum.push(cum[i - 1] + (weights[i - 1] + weights[i]) / 2);
-    const total = cum[SAMPLES - 1];
-    const timeAtU = (u: number) => {
-      const target = u * total;
-      let i = 1;
-      while (i < SAMPLES - 1 && cum[i] < target) i++;
-      const seg = (target - cum[i - 1]) / (cum[i] - cum[i - 1] || 1);
-      const frac = (i - 1 + seg) / (SAMPLES - 1);
-      return first + (NOW - first) * frac;
-    };
-
-      // ---- Header narration. The tour reads as a script run: a command is
-    // typed, then each year reports what it loaded. Years with nothing new
-    // keep the previous line, so quiet stretches share a descriptor instead
-    // of printing filler.
-    const term = document.getElementById('term-line');
+    // ---- Header narration: the command types on the prompt line, then one
+    // line per era streams upward beneath it like log output.
+    const cmdEl = document.getElementById('term-cmd');
+    const logEl = document.getElementById('term-log');
     const headerEl = document.querySelector('header');
-    const setTerm = (txt: string, caret = false) => {
-      if (!term) return;
-      term.textContent = txt;
+    // Caret belongs to the command only. A blinking cursor on a narration line
+    // implies the machine is still typing it, which it is not.
+    const setCmd = (txt: string, caret: boolean) => {
+      if (!cmdEl) return;
+      cmdEl.textContent = txt;
       if (caret) {
         const c = document.createElement('span');
         c.className = 'cursor';
-        term.appendChild(c);
+        cmdEl.appendChild(c);
       }
     };
+    const pushLine = (txt: string) => {
+      if (!logEl) return;
+      const el = document.createElement('span');
+      el.className = 'log-line enter';
+      el.textContent = txt;
+      logEl.appendChild(el);
+      // Keep two: the current line and the one it displaced.
+      while (logEl.children.length > 2) logEl.removeChild(logEl.firstChild!);
+      requestAnimationFrame(() => el.classList.remove('enter'));
+    };
+
     // Eras, not a manifest. The giant year watermark already says *when*; this
-    // line says what that stretch of time was actually like. Ranges overlap
-    // years deliberately so quiet stretches keep reading as one chapter.
+    // line says what that stretch of time was actually like.
     const ERAS: [number, number, string][] = [
       [2003, 2006, 'a site my dad put up for me. i started changing things to see what would break'],
       [2007, 2009, 'teaching it back on youtube, mostly to figure out if i understood it'],
@@ -516,33 +505,61 @@ async function init(root: HTMLElement) {
       [2024, 2025, 'platform work. five days of setup down to under ten minutes'],
       [2026, 2026, 'building faster than i can write it down. AI-assisted, openly'],
     ];
-    const eraFor = (y: number) => ERAS.find(([a, b]) => y >= a && y <= b) ?? null;
-    let lastEra: string | null = null;
-    const narrate = (y: number) => {
-      const era = eraFor(y);
-      if (!era || era[2] === lastEra) return;
-      lastEra = era[2];
-      const span = era[0] === era[1] ? `${era[0]}` : `${era[0]}-${era[1]}`;
-      setTerm(`# ${span}  ${era[2]}`, true);
+    // Pacing is driven by READING TIME, not by idea density: an era holds the
+    // screen for as long as its own sentence takes to read, so a long line is
+    // never yanked away mid-clause. ~34ms/char lands near a comfortable
+    // 250wpm, plus a settle beat before the eye starts.
+    const PER_CHAR = 34;
+    const SETTLE_MS = 1100;
+    const schedule = ERAS.map(([a, b, text]) => ({
+      from: Date.UTC(a, 0, 1),
+      to: Math.min(NOW, Date.UTC(b + 1, 0, 1)),
+      span: `${a === b ? a : `${a}-${b}`}`,
+      text,
+      dur: SETTLE_MS + text.length * PER_CHAR,
+    }));
+    const SWEEP_MS = schedule.reduce((acc, e) => acc + e.dur, 0);
+    let eraIdx = -1;
+    // Maps elapsed wall-clock onto the focus year, and emits a line whenever
+    // the era changes.
+    const focusAt = (elapsed: number) => {
+      let acc = 0;
+      for (let i = 0; i < schedule.length; i++) {
+        const e = schedule[i];
+        const last = i === schedule.length - 1;
+        if (elapsed < acc + e.dur || last) {
+          if (i !== eraIdx) {
+            eraIdx = i;
+            pushLine(`# ${e.span}  ${e.text}`);
+          }
+          const q = Math.max(0, Math.min(1, (elapsed - acc) / e.dur));
+          return e.from + (e.to - e.from) * q;
+        }
+        acc += e.dur;
+      }
+      return NOW;
     };
 
     const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
     const typeCommand = (done: () => void) => {
-      if (!term) return done();
-      headerEl?.classList.add('has-term');
+      if (!cmdEl) return done();
+      headerEl?.classList.add('has-log');
       let i = 0;
       const tick = () => {
         if (!sweepActive) return;
         i++;
-        setTerm(CMD.slice(0, i), true);
+        setCmd(CMD.slice(0, i), true);
         if (i < CMD.length) setTimeout(tick, 26);
-        else setTimeout(done, 520);
+        // Beat after the command lands, before anything loads.
+        else setTimeout(() => {
+          setCmd(CMD, false);
+          done();
+        }, 640);
       };
       tick();
     };
 
   const LINGER_MS = 1600;
-    const SWEEP_MS = 27000; // slower: each year's line has to be readable
     const HOLD_MS = 2600; // sit on the finished map before explaining it
     const NARROW_MS = 2200; // range selector shrinking to its resting width
 
@@ -557,9 +574,9 @@ async function init(root: HTMLElement) {
       const t0ms = performance.now();
       const step = (nowMs: number) => {
         if (!sweepActive) return;
-        const u = Math.max(0, Math.min(1, (nowMs - t0ms) / SWEEP_MS));
-        focus = timeAtU(u);
-        narrate(new Date(focus).getUTCFullYear());
+        const elapsed = Math.max(0, nowMs - t0ms);
+        const u = Math.min(1, elapsed / SWEEP_MS);
+        focus = focusAt(elapsed);
         renderTimeline();
         if (u < 1) {
           sweepRaf = requestAnimationFrame(step);
@@ -596,10 +613,7 @@ async function init(root: HTMLElement) {
                 renderTimeline();
                 sweepActive = false;
                 introCam = false;
-                setTerm(
-                  `# ${data.nodes.length} of them, and the map is still growing`,
-                );
-                headerEl?.classList.remove('has-term');
+                pushLine(`# ${data.nodes.length} of them, and still growing`);
               }
             };
             sweepRaf = requestAnimationFrame(narrow);
