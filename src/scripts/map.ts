@@ -162,11 +162,35 @@ async function init(root: HTMLElement) {
   // at empty ground with no way back except the reset button, which is a dead
   // end a first-time visitor has no reason to look for.
   // Recomputed on resize because d3 clamps translation against the viewport.
-  const WORLD = 1100;
+  // Derived from where the layout actually ended up, plus a full viewport of
+  // slack on each side. The slack is deliberately dead space: a wall right at
+  // the content edge feels cramped even when there is nothing out there to
+  // look at, and X gets the most because that is the axis people drag along.
   const applyExtent = () => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of data.nodes) {
+      const nx = n.x ?? 0;
+      const ny = n.y ?? 0;
+      if (nx < minX) minX = nx;
+      if (nx > maxX) maxX = nx;
+      if (ny < minY) minY = ny;
+      if (ny > maxY) maxY = ny;
+    }
+    // Before the simulation has placed anything, fall back to a sane box.
+    if (!Number.isFinite(minX)) {
+      minX = -400;
+      maxX = 400;
+      minY = -300;
+      maxY = 300;
+    }
+    const slackX = Math.max(width, 640);
+    const slackY = Math.max(height * 0.7, 360);
     zoomer.translateExtent([
-      [-WORLD, -WORLD],
-      [WORLD, WORLD],
+      [minX - slackX, minY - slackY],
+      [maxX + slackX, maxY + slackY],
     ]);
   };
   const zoomer = zoom<HTMLCanvasElement, unknown>()
@@ -193,6 +217,11 @@ async function init(root: HTMLElement) {
   sel.call(zoomer);
   transform = constrained(transform);
   sel.call(zoomer.transform, transform);
+  // The extent depends on both the layout and the viewport, so recompute as
+  // the simulation settles and whenever the window changes.
+  new ResizeObserver(applyExtent).observe(root);
+  sim.on('end', applyExtent);
+  setTimeout(applyExtent, 2000);
 
   // ---- Intro camera: eases toward a transform that frames every visible dot,
   // so the view pulls back as the map fills instead of letting early years
