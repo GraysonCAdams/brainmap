@@ -248,8 +248,9 @@ async function init(root: HTMLElement) {
         ctx.stroke();
       } else {
         if (n.status === 'shipped' || isActive) {
+          // repo freshness feeds the glow: recently-active nodes burn brighter
           ctx.shadowColor = color;
-          ctx.shadowBlur = isActive ? 18 : 10;
+          ctx.shadowBlur = isActive ? 18 : 6 + 10 * (n.freshness ?? 0.35);
         }
         ctx.fillStyle = color;
         ctx.beginPath();

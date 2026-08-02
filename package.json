@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
+    "enrich": "node scripts/enrich.mjs",
+    "prebuild": "node scripts/enrich.mjs",
     "build": "astro build",
     "preview": "astro preview"
   },

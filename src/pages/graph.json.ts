@@ -1,5 +1,11 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
+import enrichment from '../data/enrichment.json';
+
+const enriched = enrichment as Record<
+  string,
+  { freshness?: number; missing?: boolean }
+>;
 
 /**
  * The single data payload the graph island consumes.
@@ -42,6 +48,7 @@ export const GET: APIRoute = async () => {
       repo: n.data.repo ?? null,
       tech: n.data.tech,
       featured: n.data.featured ?? null,
+      freshness: enriched[n.id]?.freshness ?? null,
     };
   });
 

@@ -31,6 +31,13 @@ export async function getStaticPaths() {
 const { node, neighbors } = Astro.props;
 const { Content } = await render(node);
 const since = node.data.started.toISOString().slice(0, 10);
+
+import enrichment from '../../data/enrichment.json';
+const repoInfo = (enrichment as Record<string, any>)[node.id];
+const lastActive =
+  repoInfo && !repoInfo.missing && repoInfo.pushedAt
+    ? repoInfo.pushedAt.slice(0, 10)
+    : null;
 ---
 
 <Base title={node.data.title} description={node.data.tagline}>
@@ -50,6 +57,14 @@ const since = node.data.started.toISOString().slice(0, 10);
               <>
                 <span class="sep" aria-hidden="true">·</span>
                 <a href={`https://github.com/${node.data.repo}`}>{node.data.repo}</a>
+              </>
+            )
+          }
+          {
+            lastActive && (
+              <>
+                <span class="sep" aria-hidden="true">·</span>
+                <span>last active {lastActive}</span>
               </>
             )
           }
