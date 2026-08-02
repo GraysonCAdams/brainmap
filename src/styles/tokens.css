@@ -13,13 +13,16 @@
   --ink-dim: #a8a89c;
   --ink-faint: #6b7269;
 
-  /* domain lamps: the only saturated colors on the site */
-  --lamp-ai-tooling: #5fd4c4;
-  --lamp-home-automation: #e8b84b;
-  --lamp-media: #c77de0;
-  --lamp-finance: #7fc96b;
-  --lamp-infra: #6fa8dc;
-  --lamp-web: #e8785a;
+  /* domain lamps: the only saturated colors on the site.
+     Validated (dataviz six checks, dark surface #0C1214): lightness band,
+     chroma floor, CVD separation, normal-vision floor, contrast. Re-run the
+     validator before changing any of these. */
+  --lamp-ai-tooling: #0aa99b;
+  --lamp-home-automation: #ba8824;
+  --lamp-media: #a062bb;
+  --lamp-finance: #5ca04d;
+  --lamp-infra: #437cc3;
+  --lamp-web: #cc6349;
 
   /* status is encoded by lamp treatment, not extra hues:
      idea = hollow, building = pulsing, shipped = solid, retired = dimmed */
