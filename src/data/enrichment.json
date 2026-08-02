@@ -3,10 +3,10 @@
     "repo": "312-dev/arena-mcp",
     "missing": false,
     "pushedAt": "2026-07-21T18:32:07Z",
-    "freshness": 0.971,
+    "freshness": 0.97,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T20:59:50.428Z"
+    "checkedAt": "2026-08-02T21:07:44.299Z"
   },
   "brainmap": {
     "repo": "GraysonCAdams/brainmap",
@@ -15,7 +15,7 @@
     "freshness": 1,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T20:59:50.557Z"
+    "checkedAt": "2026-08-02T21:07:44.471Z"
   },
   "ente-jellyfin": {
     "repo": "GraysonCAdams/ente-jellyfin",
@@ -24,6 +24,6 @@
     "freshness": 0.927,
     "language": "Go",
     "stars": 0,
-    "checkedAt": "2026-08-02T20:59:50.691Z"
+    "checkedAt": "2026-08-02T21:07:44.644Z"
   }
 }

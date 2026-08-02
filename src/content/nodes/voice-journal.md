@@ -10,8 +10,6 @@ links: []
 tech: [whisper, llm]
 ---
 
-> Draft placeholder seeded during construction; this one is still just an idea.
-
 ## Problem
 
 Journaling never sticks as a writing habit, but narrating the day out loud is effortless.
