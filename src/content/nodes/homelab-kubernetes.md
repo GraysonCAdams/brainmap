@@ -9,7 +9,7 @@ started: 2020-10-24
 ended: 2025-02-05
 links: [box-stack, ynab-automation]
 tech: [kubernetes, k3s, terraform, helm, argocd, cloudflare, digitalocean]
-featured: 3
+featured: 5
 ---
 
 ## Problem

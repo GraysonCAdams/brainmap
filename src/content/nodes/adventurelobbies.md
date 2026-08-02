@@ -9,7 +9,7 @@ started: 2012-01-01
 ended: 2014-07-01
 links: [gtotechnology, joinlobbies]
 tech: [java, bukkit, mysql, php, linux, ftp]
-featured: 1
+featured: 2
 ---
 
 ## Problem

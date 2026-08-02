@@ -9,6 +9,7 @@ started: 2021-08-01
 ended: 2023-05-01
 links: [homelab-kubernetes]
 tech: [kubernetes, celery, redis, react, python, nodejs, discord]
+featured: 3
 ---
 
 ## Problem

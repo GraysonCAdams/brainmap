@@ -8,7 +8,7 @@ tags: [ai-tooling]
 started: 2026-07-20
 links: [mcp-gateway]
 tech: [go, biometrics, sandboxing]
-featured: 2
+featured: 4
 ---
 
 ## Problem

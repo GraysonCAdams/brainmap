@@ -8,7 +8,6 @@ tags: [apps]
 started: 2026-05-15
 links: [mcp-gateway]
 tech: [mcp, typescript, reverse-engineering]
-featured: 4
 ---
 
 ## Problem
