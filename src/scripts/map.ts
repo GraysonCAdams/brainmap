@@ -444,10 +444,12 @@ async function init(root: HTMLElement) {
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
     tl.wrap?.classList.remove('tl-enter');
-    // Drop the typing caret, or a blinking cursor is left stranded in the
-    // header after an interrupted tour.
-    const cmdEl = document.getElementById('term-cmd');
-    if (cmdEl) cmdEl.textContent = cmdEl.textContent;
+    // Put the header back the way it was: no reserved log height, no stranded
+    // caret, wordmark restored.
+    const h = document.querySelector('header');
+    h?.classList.remove('has-log');
+    const term = document.getElementById('term');
+    if (term) term.textContent = '';
     renderTimeline();
   };
   // The tour only starts once the whoami modal is gone; running it behind the
@@ -464,31 +466,27 @@ async function init(root: HTMLElement) {
     renderTimeline();
     sweepActive = true;
 
-    // ---- Header narration: the command types on the prompt line, then one
-    // line per era streams upward beneath it like log output.
-    const cmdEl = document.getElementById('term-cmd');
-    const logEl = document.getElementById('term-log');
+    // ---- Header narration. One container, every line a block-level div, so
+    // lines stack even before CSS lands. Appending pushes the older line up
+    // and out of the two-line window, which is the scroll.
+    const termEl = document.getElementById('term');
     const headerEl = document.querySelector('header');
-    // Caret belongs to the command only. A blinking cursor on a narration line
-    // implies the machine is still typing it, which it is not.
-    const setCmd = (txt: string, caret: boolean) => {
-      if (!cmdEl) return;
-      cmdEl.textContent = txt;
-      if (caret) {
-        const c = document.createElement('span');
-        c.className = 'cursor';
-        cmdEl.appendChild(c);
-      }
-    };
-    const pushLine = (txt: string) => {
-      if (!logEl) return;
-      const el = document.createElement('span');
-      el.className = 'log-line enter';
-      el.textContent = txt;
-      logEl.appendChild(el);
-      // Keep two: the current line and the one it displaced.
-      while (logEl.children.length > 2) logEl.removeChild(logEl.firstChild!);
+    const line = (cls = '') => {
+      const el = document.createElement('div');
+      el.className = `log-line enter${cls ? ` ${cls}` : ''}`;
+      termEl?.appendChild(el);
+      // Keep the current line and the one it displaced; drop the rest.
+      while (termEl && termEl.children.length > 2) termEl.removeChild(termEl.firstChild!);
       requestAnimationFrame(() => el.classList.remove('enter'));
+      return el;
+    };
+    // The prompt belongs to the command's own line, so it scrolls away with it.
+    const PROMPT =
+      '<span class="p-user">gray</span><span class="p-path">@</span>' +
+      '<span class="p-host">brainmap</span><span class="p-path">:~$</span> ';
+    const pushLine = (txt: string) => {
+      const el = line();
+      el.textContent = txt;
     };
 
     // Eras, not a manifest. The giant year watermark already says *when*; this
@@ -542,19 +540,28 @@ async function init(root: HTMLElement) {
 
     const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
     const typeCommand = (done: () => void) => {
-      if (!cmdEl) return done();
+      if (!termEl) return done();
       headerEl?.classList.add('has-log');
+      const el = line('cmd-line');
       let i = 0;
+      const render = (caret: boolean) => {
+        el.innerHTML = `${PROMPT}<span class="cmd">${CMD.slice(0, i)}</span>${
+          caret ? '<span class="cursor"></span>' : ''
+        }`;
+      };
+      render(true);
       const tick = () => {
         if (!sweepActive) return;
         i++;
-        setCmd(CMD.slice(0, i), true);
+        render(true);
         if (i < CMD.length) setTimeout(tick, 26);
-        // Beat after the command lands, before anything loads.
-        else setTimeout(() => {
-          setCmd(CMD, false);
-          done();
-        }, 640);
+        // Beat after the command lands, before anything loads. Caret goes:
+        // the command has been issued, it is not still being typed.
+        else
+          setTimeout(() => {
+            render(false);
+            done();
+          }, 640);
       };
       tick();
     };
@@ -614,6 +621,12 @@ async function init(root: HTMLElement) {
                 sweepActive = false;
                 introCam = false;
                 pushLine(`# ${data.nodes.length} of them, and still growing`);
+                // Let the closing line be read, then hand the header back to
+                // its resting state: log cleared, wordmark returned.
+                setTimeout(() => {
+                  if (termEl) termEl.textContent = '';
+                  headerEl?.classList.remove('has-log');
+                }, 3400);
               }
             };
             sweepRaf = requestAnimationFrame(narrow);

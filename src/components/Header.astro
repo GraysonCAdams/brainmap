@@ -9,12 +9,10 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
       class="cursor"
       aria-hidden="true"></span></a
   >
-  <!-- Terminal narration: the map's intro types a command here, then streams
-       one line per era upward like log output. Decorative, so aria-hidden. -->
-  <span id="term" class="term" aria-hidden="true">
-    <span id="term-cmd" class="term-cmd"></span>
-    <span id="term-log" class="term-log"></span>
-  </span>
+  <!-- Terminal narration. Every line lives here, including the command and
+       its prompt, so the prompt scrolls away with its own command exactly as
+       it would in a shell. Decorative, so aria-hidden. -->
+  <div id="term" class="term" aria-hidden="true"></div>
   <nav>
     <a href="/bio" aria-current={current('/bio')}>bio</a>
     <a href="/resume" aria-current={current('/resume')}>resume</a>
@@ -50,72 +48,76 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
     margin-left: 2px;
   }
   /* While the terminal line is running, its own cursor is the live one. */
-  :global(header.has-term) .wordmark .cursor {
+  header.has-log .wordmark .cursor {
     display: none;
   }
-  /* The command types on the prompt line; log lines stack beneath it and
-     scroll up out of a two-line window. Bottom-anchored, so appending a line
-     pushes the older one up for free. */
+  /* Two-line window, bottom-anchored: appending a line pushes the older one
+     up and out, which is the scroll. Children are divs, not spans, so they
+     stack even if this rule never lands. */
   .term {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
     align-self: flex-start;
-  }
-  .term-cmd,
-  .term-log :global(.log-line) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    /* Data line: fixed-width digits keep the year from jittering. */
-    font-variant-numeric: tabular-nums;
-    line-height: 1.35;
-  }
-  .term-cmd {
-    color: var(--ink-dim);
-  }
-  .term-cmd:empty {
-    display: none;
-  }
-  .term-log {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     overflow: hidden;
     color: var(--ink-faint);
   }
-  /* Reserved only once narration starts, so other pages keep a one-line header
-     and the map's header does not resize mid-tour. */
-  :global(header.has-log) .term-log {
-    height: 2.7em;
+  .term:empty {
+    display: none;
   }
-  .term-log :global(.log-line) {
+  /* Reserved only while narrating, so other pages keep a one-line header and
+     the map's header does not resize mid-tour. */
+  header.has-log .term {
+    height: 2.8em;
+  }
+  /* The wordmark IS the prompt. Once the command has been issued it belongs to
+     that command's line and scrolls away with it, so the static one goes. */
+  header.has-log .wordmark {
+    display: none;
+  }
+  .term :global(.log-line) {
     display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
     transition:
-      opacity 320ms cubic-bezier(0.2, 0, 0, 1),
-      translate 320ms cubic-bezier(0.2, 0, 0, 1);
+      opacity 280ms cubic-bezier(0.2, 0, 0, 1),
+      translate 280ms cubic-bezier(0.2, 0, 0, 1);
   }
-  /* The older line stays legible but stops competing with the current one. */
-  .term-log :global(.log-line:not(:last-child)) {
-    opacity: 0.4;
+  /* The displaced line stays readable but stops competing. */
+  .term :global(.log-line:not(:last-child)) {
+    opacity: 0.38;
   }
-  .term-log :global(.log-line.enter) {
+  .term :global(.log-line.enter) {
     opacity: 0;
-    translate: 0 0.6em;
+    translate: 0 1em;
+  }
+  .term :global(.log-line .p-user) {
+    color: var(--prompt);
+  }
+  .term :global(.log-line .p-host) {
+    color: var(--ink);
+  }
+  .term :global(.log-line .p-path) {
+    color: var(--ink-faint);
+  }
+  .term :global(.log-line .cmd) {
+    color: var(--ink-dim);
   }
   @media (prefers-reduced-motion: reduce) {
-    .term-log :global(.log-line) {
+    .term :global(.log-line) {
       transition: none;
     }
-    .term-log :global(.log-line.enter) {
+    .term :global(.log-line.enter) {
       opacity: 1;
       translate: none;
     }
   }
   @media (max-width: 720px) {
-    /* Not enough room to narrate beside the nav; the map still tells the story. */
     .term {
       display: none;
     }
