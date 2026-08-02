@@ -1,5 +1,6 @@
 ---
 import { getCollection, render } from 'astro:content';
+import { DOMAIN_LABELS } from '../../content.config';
 import Base from '../../layouts/Base.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
@@ -50,7 +51,7 @@ const lastActive =
           <Lamp domain={node.data.domain} status={node.data.status} />
           <span>{node.data.status}</span>
           <span class="sep" aria-hidden="true">·</span>
-          <span>{node.data.domain}</span>
+          <span>{DOMAIN_LABELS[node.data.domain]}</span>
           <span class="sep" aria-hidden="true">·</span>
           <time datetime={since}>{since}</time>
           {

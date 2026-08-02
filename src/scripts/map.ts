@@ -52,8 +52,11 @@ if (root) init(root).catch((err) => {
 async function init(root: HTMLElement) {
   const res = await fetch('/graph.json');
   if (!res.ok) throw new Error(`graph.json ${res.status}`);
-  const data: { nodes: GraphNode[]; edges: { source: string; target: string }[] } =
-    await res.json();
+  const data: {
+    nodes: GraphNode[];
+    edges: { source: string; target: string }[];
+    domainLabels?: Record<string, string>;
+  } = await res.json();
 
   const css = getComputedStyle(document.documentElement);
   const token = (name: string) => css.getPropertyValue(name).trim();
@@ -944,7 +947,7 @@ async function init(root: HTMLElement) {
       // legend label breaks the circle's top
       const size = 10.5 / transform.k;
       ctx.font = `600 ${size}px ${FONT_DATA}`;
-      const text = d.toUpperCase();
+      const text = (data.domainLabels?.[d] ?? d).toUpperCase();
       const tw = ctx.measureText(text).width;
       ctx.globalAlpha = ca;
       ctx.fillStyle = GROUND;

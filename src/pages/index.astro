@@ -3,7 +3,7 @@ import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import { SITE } from '../site.config';
-import { DOMAINS } from '../content.config';
+import { DOMAINS, DOMAIN_LABELS } from '../content.config';
 
 // Counts include tags: a node matches every domain it carries.
 const all = await getCollection('nodes');
@@ -84,7 +84,7 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
               style={`--lamp: var(--lamp-${d})`}
             >
               <i class="dot" aria-hidden="true" />
-              <span class="dname">{d}</span>
+              <span class="dname">{DOMAIN_LABELS[d]}</span>
               <span class="dcount">{counts[d]}</span>
             </button>
           ))

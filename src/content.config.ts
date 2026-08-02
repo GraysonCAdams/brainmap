@@ -17,6 +17,23 @@ export const DOMAINS = [
   'workflows',
 ] as const;
 
+/**
+ * Display names. The slugs above key the schema, the colour tokens and every
+ * node's frontmatter, so they are awkward to change; these are just what a
+ * reader sees. Renaming a category is a one-line edit here, not a migration.
+ * No hyphens: a slug reads as a slug, and these are meant to read as words.
+ */
+export const DOMAIN_LABELS: Record<(typeof DOMAINS)[number], string> = {
+  'home-automation': 'home',
+  security: 'security',
+  utilities: 'utilities',
+  media: 'media',
+  'ai-tooling': 'ai tooling',
+  apps: 'apps',
+  infra: 'infra',
+  workflows: 'workflows',
+};
+
 export const STATUSES = ['idea', 'building', 'shipped', 'retired'] as const;
 
 /**

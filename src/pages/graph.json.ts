@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
+import { DOMAIN_LABELS } from '../content.config';
 import enrichment from '../data/enrichment.json';
 
 const enriched = enrichment as Record<
@@ -68,7 +69,7 @@ export const GET: APIRoute = async () => {
     }
   }
 
-  return new Response(JSON.stringify({ nodes, edges }), {
+  return new Response(JSON.stringify({ nodes, edges , domainLabels: DOMAIN_LABELS}), {
     headers: { 'Content-Type': 'application/json' },
   });
 };
