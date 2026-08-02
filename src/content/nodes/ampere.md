@@ -1,5 +1,5 @@
 ---
-title: Phono
+title: Ampere
 tagline: An Alexa music skill for any self-hosted music server.
 scale: 3
 status: building
