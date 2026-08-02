@@ -9,6 +9,9 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
       class="cursor"
       aria-hidden="true"></span></a
   >
+  <!-- Terminal narration: the map's intro types a command here and then
+       reports each year as it loads. Purely decorative, so aria-hidden. -->
+  <span id="term-line" class="term-line" aria-hidden="true"></span>
   <nav>
     <a href="/bio" aria-current={current('/bio')}>bio</a>
     <a href="/resume" aria-current={current('/resume')}>resume</a>
@@ -42,6 +45,29 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
   }
   .wordmark .cursor {
     margin-left: 2px;
+  }
+  /* While the terminal line is running, its own cursor is the live one. */
+  :global(header.has-term) .wordmark .cursor {
+    display: none;
+  }
+  .term-line {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink-faint);
+    /* Data line: fixed-width digits keep the year from jittering as it counts. */
+    font-variant-numeric: tabular-nums;
+  }
+  .term-line:empty {
+    display: none;
+  }
+  @media (max-width: 640px) {
+    /* Too little room to narrate beside the nav; the map still tells the story. */
+    .term-line {
+      display: none;
+    }
   }
   nav {
     display: flex;

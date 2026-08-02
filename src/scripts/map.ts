@@ -178,7 +178,20 @@ async function init(root: HTMLElement) {
     .on('end', () => (canvas.style.cursor = 'grab'));
   const sel = select(canvas);
   applyExtent();
+  // d3 enforces translateExtent only during gestures. A programmatic transform
+  // that sits outside it looks fine until the first drag, which then snaps the
+  // view. Push ours through d3's own constrain so there is nothing to snap to.
+  const constrained = (t: ZoomTransform): ZoomTransform =>
+    zoomer.constrain()(
+      t,
+      [
+        [0, 0],
+        [width, height],
+      ],
+      zoomer.translateExtent(),
+    );
   sel.call(zoomer);
+  transform = constrained(transform);
   sel.call(zoomer.transform, transform);
 
   // ---- Intro camera: eases toward a transform that frames every visible dot,
@@ -203,19 +216,21 @@ async function init(root: HTMLElement) {
       if (ny < minY) minY = ny;
       if (ny > maxY) maxY = ny;
     }
-    // Padding leaves room for labels, which hang below their dot.
+    // Asymmetric on purpose: node labels hang BELOW their dot, and cluster
+    // legend labels sit ABOVE their circle, so the top needs the most room.
     const pad = 90;
+    const padTop = 150;
     const w = Math.max(1, maxX - minX + pad * 2);
-    const h = Math.max(1, maxY - minY + pad * 2);
+    const h = Math.max(1, maxY - minY + padTop + pad);
     const k = Math.max(0.35, Math.min(1.6, Math.min(width / w, height / h)));
     const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
+    const cy = (minY + maxY) / 2 + (padTop - pad) / 2;
     // Critically damped chase: no overshoot, frame-rate independent.
     const s = 1 - Math.exp(-dt / 420);
     const nk = transform.k + (k - transform.k) * s;
     const nx = transform.x + (width / 2 - cx * nk - transform.x) * s;
     const ny = transform.y + (height / 2 - cy * nk - transform.y) * s;
-    transform = zoomIdentity.translate(nx, ny).scale(nk);
+    transform = constrained(zoomIdentity.translate(nx, ny).scale(nk));
     sel.call(zoomer.transform, transform);
   };
 
@@ -429,6 +444,11 @@ async function init(root: HTMLElement) {
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
     tl.wrap?.classList.remove('tl-enter');
+    // Drop the narration caret too, or a blinking cursor is left stranded in
+    // the header after an interrupted tour.
+    document.querySelector('header')?.classList.remove('has-term');
+    const t = document.getElementById('term-line');
+    if (t) t.textContent = t.textContent;
     renderTimeline();
   };
   // The tour only starts once the whoami modal is gone; running it behind the
@@ -466,8 +486,58 @@ async function init(root: HTMLElement) {
       return first + (NOW - first) * frac;
     };
 
-    const LINGER_MS = 1600;
-    const SWEEP_MS = 18400; // ~20s tour total, distributed by idea density
+      // ---- Header narration. The tour reads as a script run: a command is
+    // typed, then each year reports what it loaded. Years with nothing new
+    // keep the previous line, so quiet stretches share a descriptor instead
+    // of printing filler.
+    const term = document.getElementById('term-line');
+    const headerEl = document.querySelector('header');
+    const setTerm = (txt: string, caret = false) => {
+      if (!term) return;
+      term.textContent = txt;
+      if (caret) {
+        const c = document.createElement('span');
+        c.className = 'cursor';
+        term.appendChild(c);
+      }
+    };
+    const byYear = new Map<number, string[]>();
+    for (const n of data.nodes) {
+      if (!n.started) continue;
+      const y = new Date(Date.parse(n.started)).getUTCFullYear();
+      (byYear.get(y) ?? byYear.set(y, []).get(y)!).push(n.title);
+    }
+    const lineFor = (y: number) => {
+      const t = byYear.get(y);
+      if (!t?.length) return null;
+      const what =
+        t.length <= 2 ? t.join(', ') : `${t.length} projects`;
+      return `==> ${y}  loading ${what}`;
+    };
+    let lastYear = 0;
+    const narrate = (y: number) => {
+      if (y === lastYear) return;
+      lastYear = y;
+      const line = lineFor(y);
+      if (line) setTerm(line, true);
+    };
+    const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
+    const typeCommand = (done: () => void) => {
+      if (!term) return done();
+      headerEl?.classList.add('has-term');
+      let i = 0;
+      const tick = () => {
+        if (!sweepActive) return;
+        i++;
+        setTerm(CMD.slice(0, i), true);
+        if (i < CMD.length) setTimeout(tick, 26);
+        else setTimeout(done, 520);
+      };
+      tick();
+    };
+
+  const LINGER_MS = 1600;
+    const SWEEP_MS = 27000; // slower: each year's line has to be readable
     const HOLD_MS = 2600; // sit on the finished map before explaining it
     const NARROW_MS = 2200; // range selector shrinking to its resting width
 
@@ -476,13 +546,15 @@ async function init(root: HTMLElement) {
     introCam = true;
     tl.wrap?.classList.add('tl-enter');
 
-    whenBegun(() => setTimeout(() => {
+    whenBegun(() =>
+      typeCommand(() => setTimeout(() => {
       if (!sweepActive) return;
       const t0ms = performance.now();
       const step = (nowMs: number) => {
         if (!sweepActive) return;
         const u = Math.max(0, Math.min(1, (nowMs - t0ms) / SWEEP_MS));
         focus = timeAtU(u);
+        narrate(new Date(focus).getUTCFullYear());
         renderTimeline();
         if (u < 1) {
           sweepRaf = requestAnimationFrame(step);
@@ -519,6 +591,12 @@ async function init(root: HTMLElement) {
                 renderTimeline();
                 sweepActive = false;
                 introCam = false;
+                const yrs =
+                  new Date(NOW).getUTCFullYear() - new Date(T0).getUTCFullYear();
+                setTerm(
+                  `==> ok  ${data.nodes.length} projects across ${yrs} years`,
+                );
+                headerEl?.classList.remove('has-term');
               }
             };
             sweepRaf = requestAnimationFrame(narrow);
@@ -526,7 +604,8 @@ async function init(root: HTMLElement) {
         }, HOLD_MS);
       };
       sweepRaf = requestAnimationFrame(step);
-    }, LINGER_MS));
+      }, LINGER_MS)),
+    );
   } else {
     renderTimeline();
   }
@@ -672,6 +751,7 @@ async function init(root: HTMLElement) {
   const clusterAlpha = new Map<string, number>();
   const clusterGeo = new Map<string, { cx: number; cy: number; r: number }>();
   const nodeVis = new Map<string, number>();
+  let watermark = 0.05;
   let lastFrame = 0;
 
   let raf = 0;
@@ -707,7 +787,11 @@ async function init(root: HTMLElement) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = INK;
-    ctx.globalAlpha = 0.05;
+    // The year is ambient context, not content. When a dot is engaged it steps
+    // further back so it cannot compete with the thing being read.
+    const wmTarget = hovered ? 0.018 : 0.05;
+    watermark += (wmTarget - watermark) * (1 - Math.exp(-dt / 180));
+    ctx.globalAlpha = watermark;
     ctx.fillText(String(new Date(focus).getUTCFullYear()), width / 2, height / 2);
     ctx.globalAlpha = 1;
     ctx.textBaseline = 'alphabetic';
