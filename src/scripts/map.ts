@@ -190,6 +190,7 @@ async function init(root: HTMLElement) {
     edgeL: document.getElementById('tl-edge-l') as HTMLElement,
     edgeR: document.getElementById('tl-edge-r') as HTMLElement,
     handle: document.getElementById('tl-handle') as HTMLElement,
+    bubble: document.getElementById('tl-bubble') as HTMLElement,
     readout: document.getElementById('tl-readout') as HTMLElement,
     reset: document.getElementById('tl-reset') as HTMLElement,
   };
@@ -214,6 +215,7 @@ async function init(root: HTMLElement) {
     const label = document.createElement('span');
     label.className = 'tick-label';
     label.style.left = `${pct(t)}%`;
+    if (y === 2000) label.style.transform = 'none'; // don't clip off the left edge
     label.textContent = String(y);
     tl.ticks.appendChild(label);
   }
@@ -221,37 +223,72 @@ async function init(root: HTMLElement) {
     const r = tl.track.getBoundingClientRect();
     return (ev.clientX - r.left) / r.width;
   };
-  const dragTarget = { current: null as null | 'handle' | 'edgeL' | 'edgeR' };
-  const startDrag = (which: typeof dragTarget.current) => (ev: PointerEvent) => {
-    ev.stopPropagation();
-    ev.preventDefault();
-    // keep receiving moves even when the finger wanders off the element
-    (ev.target as Element).setPointerCapture?.(ev.pointerId);
-    dragTarget.current = which;
+  // Year bubble: appears above the scrubber during any interaction.
+  let bubbleTimer = 0;
+  const showBubble = () => {
+    const y = new Date(focus).getUTCFullYear();
+    tl.bubble.textContent = focus > NOW - 30 * 86400000 ? 'now' : String(y);
+    tl.bubble.style.left = `${pct(focus)}%`;
+    tl.bubble.hidden = false;
+    clearTimeout(bubbleTimer);
+    bubbleTimer = window.setTimeout(() => (tl.bubble.hidden = true), 900);
   };
-  tl.handle.addEventListener('pointerdown', startDrag('handle'));
-  tl.edgeL.addEventListener('pointerdown', startDrag('edgeL'));
-  tl.edgeR.addEventListener('pointerdown', startDrag('edgeR'));
-  addEventListener('pointermove', (ev) => {
-    if (!dragTarget.current) return;
+
+  // Interaction model:
+  //   drag the window band  -> slide the whole window through time (fixed width)
+  //   drag its edges        -> stretch behind/ahead
+  //   click/drag anywhere else on the track -> jump to that year, then scrub
+  type DragMode = null | 'region' | 'edgeL' | 'edgeR' | 'scrub';
+  let dragMode: DragMode = null;
+  let grabOffset = 0; // region drag: time under the pointer minus focus
+  let downX = 0;
+  let downAt = 0;
+  tl.track.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    tl.track.setPointerCapture?.(ev.pointerId);
+    downX = ev.clientX;
+    downAt = performance.now();
     const t = fromPct(trackX(ev));
-    if (dragTarget.current === 'handle') focus = Math.min(NOW, t);
-    else if (dragTarget.current === 'edgeL') behind = Math.max(0.5 * YEAR, focus - t);
+    if (ev.target === tl.edgeL) dragMode = 'edgeL';
+    else if (ev.target === tl.edgeR) dragMode = 'edgeR';
+    else if (ev.target === tl.region) {
+      dragMode = 'region';
+      grabOffset = t - focus;
+    } else {
+      dragMode = 'scrub';
+      focus = Math.min(NOW, Math.max(T0, t));
+    }
+    renderTimeline();
+    showBubble();
+  });
+  tl.track.addEventListener('pointermove', (ev) => {
+    if (!dragMode) return;
+    const t = fromPct(trackX(ev));
+    if (dragMode === 'scrub') focus = Math.min(NOW, Math.max(T0, t));
+    else if (dragMode === 'region') focus = Math.min(NOW, Math.max(T0, t - grabOffset));
+    else if (dragMode === 'edgeL') behind = Math.max(0.5 * YEAR, focus - t);
     else ahead = Math.max(0.25 * YEAR, t - focus);
     renderTimeline();
+    showBubble();
   });
-  addEventListener('pointerup', () => (dragTarget.current = null));
-  tl.track.addEventListener('pointerdown', (ev) => {
-    if (ev.target !== tl.track && ev.target !== tl.ticks) return;
-    focus = Math.min(NOW, fromPct(trackX(ev)));
-    dragTarget.current = 'handle';
-    renderTimeline();
+  tl.track.addEventListener('pointerup', (ev) => {
+    // A tap on the band (no real movement) is a jump, not a null drag.
+    if (
+      dragMode === 'region' &&
+      Math.abs(ev.clientX - downX) < 5 &&
+      performance.now() - downAt < 350
+    ) {
+      focus = Math.min(NOW, Math.max(T0, fromPct(trackX(ev))));
+      renderTimeline();
+      showBubble();
+    }
+    dragMode = null;
   });
+  tl.track.addEventListener('pointercancel', () => (dragMode = null));
   tl.reset.addEventListener('click', () => {
-    focus = NOW;
+    travelTo(NOW, 500);
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
-    renderTimeline();
   });
 
   // Smooth travel used by boundary-node clicks and the intro sweep.
@@ -404,17 +441,20 @@ async function init(root: HTMLElement) {
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
 
-    // cluster labels: live centroid of each domain's nodes, painted behind
+    // cluster labels: only for clusters with 2+ nodes visible in this era,
+    // positioned at the centroid of those visible members
     ctx.textAlign = 'center';
     for (const d of domains) {
-      const members = data.nodes.filter((n) => n.domain === d);
-      if (members.length === 0) continue;
+      const members = data.nodes.filter(
+        (n) => n.domain === d && matchesFilter(n) && relevance(n) > 0.5,
+      );
+      if (members.length < 2) continue;
       const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
-      const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
+      const minY = Math.min(...members.map((n) => n.y ?? 0));
       ctx.font = `600 ${13 / transform.k}px ${FONT_DATA}`;
       ctx.fillStyle = lamp(d);
-      ctx.globalAlpha = 0.28;
-      ctx.fillText(d.toUpperCase(), cx, cy - 34 / transform.k);
+      ctx.globalAlpha = 0.25;
+      ctx.fillText(d.toUpperCase(), cx, minY - 40 / transform.k);
     }
     ctx.globalAlpha = 1;
 

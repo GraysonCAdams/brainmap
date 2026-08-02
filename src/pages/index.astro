@@ -99,18 +99,19 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
       </div>
     </aside>
 
-    <!-- timelapse: draggable focus year + stretchable relevance window -->
+    <!-- timelapse: draggable time window + click-to-jump -->
     <div id="timeline" class="data" aria-label="Time travel">
-      <button id="tl-reset">[ reset ]</button>
       <div id="tl-track">
         <div id="tl-ticks"></div>
-        <div id="tl-region">
-          <div class="tl-edge" id="tl-edge-l" title="drag: how far back stays relevant"></div>
-          <div class="tl-edge" id="tl-edge-r" title="drag: how far ahead stays relevant"></div>
+        <div id="tl-region" title="drag through time">
+          <div class="tl-edge" id="tl-edge-l" title="stretch how far back stays relevant"></div>
+          <div class="tl-edge" id="tl-edge-r" title="stretch how far ahead stays relevant"></div>
         </div>
-        <div id="tl-handle" title="drag through time"></div>
+        <div id="tl-handle"></div>
+        <div id="tl-bubble" hidden></div>
       </div>
       <span id="tl-readout">now</span>
+      <button id="tl-reset" title="reset to today" aria-label="Reset to today">&#8634;</button>
     </div>
 
     <footer class="legend data" aria-label="How to read the map">
@@ -160,11 +161,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    /* graph-paper texture: map surface only, per DESIGN.md */
-    background-image:
-      linear-gradient(var(--line-faint) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line-faint) 1px, transparent 1px);
-    background-size: 44px 44px;
   }
   #map-root {
     position: absolute;
@@ -434,29 +430,41 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     left: 50%;
     transform: translateX(-50%);
     bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-    width: min(46rem, calc(100% - 2rem));
+    width: min(42rem, calc(100% - 2rem));
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-2);
     font-size: var(--text-xs);
     color: var(--ink-dim);
-    background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: var(--space-2) var(--space-3);
     z-index: 5;
   }
   #tl-reset {
     font: inherit;
+    font-size: 0.85rem;
+    line-height: 1;
     color: var(--ink-faint);
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0;
-    white-space: nowrap;
+    padding: 2px 4px;
   }
   #tl-reset:hover {
     color: var(--ink);
+  }
+  #tl-bubble {
+    position: absolute;
+    bottom: 26px;
+    transform: translateX(-50%);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    color: var(--ink);
+    padding: 1px 7px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #tl-bubble[hidden] {
+    display: none;
   }
   #tl-track {
     position: relative;
@@ -499,10 +507,11 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    height: 12px;
-    background: color-mix(in srgb, var(--prompt) 18%, transparent);
-    border: 1px solid color-mix(in srgb, var(--prompt) 45%, transparent);
+    height: 10px;
+    background: color-mix(in srgb, var(--prompt) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--prompt) 40%, transparent);
     border-radius: 2px;
+    cursor: grab;
   }
   .tl-edge {
     position: absolute;

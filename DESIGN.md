@@ -32,7 +32,8 @@ top nav is bio / resume / contact.
   meta-chrome ("SECTION 01", decorative eyebrows).
 - Motion: graph nodes breathe by repo freshness; hover states glow like lamps;
   respect `prefers-reduced-motion`; no scroll animation, no transition: all.
-- Graph-paper grid texture appears only on the map surface.
+- No background texture on the map (a grid was tried and rejected by the
+  owner as clutter; the ground stays clean).
 - Radii: 2px on chips/inputs, 0 on rules and tables. Never uniform rounding on
   nested elements.
 
