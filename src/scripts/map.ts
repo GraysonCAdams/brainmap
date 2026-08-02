@@ -104,13 +104,15 @@ async function init(root: HTMLElement) {
   const radiusOf = (n: GraphNode) =>
     n.visibility === 'teaser' ? 5 : 5.5 + (n.scale ?? 2) * 2;
 
+  // Tight round clumps: strong centroid gravity + modest repulsion means the
+  // members themselves form the circle the boundary traces.
   const edges: GraphEdge[] = data.edges.map((e) => ({ ...e }));
   const sim = forceSimulation(data.nodes)
-    .force('link', forceLink<GraphNode, GraphEdge>(edges).id((n) => n.id).distance(80).strength(0.4))
-    .force('charge', forceManyBody().strength(-170))
-    .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 17))
-    .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.16))
-    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.16));
+    .force('link', forceLink<GraphNode, GraphEdge>(edges).id((n) => n.id).distance(60).strength(0.25))
+    .force('charge', forceManyBody().strength(-90))
+    .force('collide', forceCollide<GraphNode>((n) => radiusOf(n) + 11))
+    .force('x', forceX<GraphNode>((n) => centroid.get(n.domain)?.x ?? 0).strength(0.24))
+    .force('y', forceY<GraphNode>((n) => centroid.get(n.domain)?.y ?? 0).strength(0.24));
 
   let transform: ZoomTransform = zoomIdentity.translate(width / 2, height / 2);
   const zoomer = zoom<HTMLCanvasElement, unknown>()
@@ -383,8 +385,10 @@ async function init(root: HTMLElement) {
   // ---- Expanded project: modal overlay, real URL via pushState.
   const modal = document.getElementById('node-modal') as HTMLElement;
   const frame = document.getElementById('node-frame') as HTMLIFrameElement;
+  const barPath = document.getElementById('node-bar-path');
   const openNode = (id: string, push: boolean) => {
     frame.src = `/idea/${id}?embed=1`;
+    if (barPath) barPath.textContent = `/idea/${id}`;
     modal.hidden = false;
     tip.hidden = true;
     if (push) history.pushState({ node: id }, '', `/idea/${id}`);
@@ -443,47 +447,44 @@ async function init(root: HTMLElement) {
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
 
-    // cluster boundaries: a faint rounded outline around each domain's
-    // visible members, label sitting ON the border like a fieldset legend.
-    // Only drawn when 2+ members are visible in this era.
+    // cluster boundaries: enclosing CIRCLE per domain (2+ visible members),
+    // label breaking the stroke at the top like a fieldset legend.
     for (const d of domains) {
       const members = data.nodes.filter(
         (n) => n.domain === d && matchesFilter(n) && relevance(n) > 0.5,
       );
       if (members.length < 2) continue;
-      const pad = 26;
-      const x0 = Math.min(...members.map((n) => (n.x ?? 0) - radiusOf(n))) - pad;
-      const x1 = Math.max(...members.map((n) => (n.x ?? 0) + radiusOf(n))) + pad;
-      const y0 = Math.min(...members.map((n) => (n.y ?? 0) - radiusOf(n))) - pad;
-      const y1 = Math.max(...members.map((n) => (n.y ?? 0) + radiusOf(n))) + pad + 10; // room for node labels
+      const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
+      const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
+      const cr =
+        Math.max(...members.map((n) => Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy) + radiusOf(n))) +
+        22;
       const color = lamp(d);
 
       ctx.beginPath();
-      ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 14);
+      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
       ctx.fillStyle = color;
-      ctx.globalAlpha = 0.035;
+      ctx.globalAlpha = 0.03;
       ctx.fill();
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.26;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1 / transform.k;
       ctx.stroke();
 
-      // legend-style label: breaks the top border
+      // legend label breaks the circle's top
       const size = 10.5 / transform.k;
       ctx.font = `600 ${size}px ${FONT_DATA}`;
       const text = d.toUpperCase();
       const tw = ctx.measureText(text).width;
-      const lx = x0 + 14;
       ctx.globalAlpha = 1;
       ctx.fillStyle = GROUND;
-      ctx.fillRect(lx - 5 / transform.k, y0 - size * 0.75, tw + 10 / transform.k, size * 1.5);
-      ctx.globalAlpha = 0.55;
+      ctx.fillRect(cx - tw / 2 - 6 / transform.k, cy - cr - size * 0.75, tw + 12 / transform.k, size * 1.5);
+      ctx.globalAlpha = 0.5;
       ctx.fillStyle = color;
-      ctx.textAlign = 'left';
-      ctx.fillText(text, lx, y0 + size * 0.35);
+      ctx.textAlign = 'center';
+      ctx.fillText(text, cx, cy - cr + size * 0.35);
     }
     ctx.globalAlpha = 1;
-    ctx.textAlign = 'center';
 
     // edges: dashed threads
     ctx.lineWidth = 1 / transform.k;
@@ -496,7 +497,8 @@ async function init(root: HTMLElement) {
       const active = hovered === s || hovered === g;
       const filtered = !matchesFilter(s) || !matchesFilter(g);
       ctx.strokeStyle = active ? INK_DIM : INK_FAINT;
-      ctx.globalAlpha = (filtered ? 0.06 : active ? 0.9 : 0.45) * relEdge;
+      // edges are on-demand detail: a whisper at rest, bright on hover
+      ctx.globalAlpha = (filtered ? 0.04 : active ? 0.9 : 0.14) * relEdge;
       ctx.beginPath();
       ctx.moveTo(s.x ?? 0, s.y ?? 0);
       ctx.lineTo(g.x ?? 0, g.y ?? 0);
@@ -560,9 +562,11 @@ async function init(root: HTMLElement) {
         ctx.stroke();
       }
 
-      // labels: always present (identity never color-alone), fading at far zoom
+      // Label hierarchy: flagships and the hovered node at rest; everything
+      // when zoomed in. Identity for the rest lives in tooltip/modal/zoom.
+      const labelWorthy = isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2;
       const labelAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
-      if (labelAlpha > 0.02 && visible) {
+      if (labelWorthy && labelAlpha > 0.02 && visible) {
         ctx.globalAlpha = alpha * labelAlpha;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
         ctx.fillStyle = isActive ? INK : INK_DIM;

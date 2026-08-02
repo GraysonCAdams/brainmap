@@ -141,6 +141,26 @@ h1::before {
   }
 }
 
+/* Themed scrollbars everywhere (including pages iframed into the map modal):
+   a stock chrome scrollbar inside a themed surface reads as a bug. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Embed mode: page rendered inside the map's node modal iframe.
    Only body-level chrome hides; article-level <header>s (the plate) stay. */
 [data-embed] body > header,
