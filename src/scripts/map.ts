@@ -207,7 +207,9 @@ async function init(root: HTMLElement) {
   let ahead = DEFAULT_AHEAD;
 
   const spanOf = (n: GraphNode): [number, number] => {
-    if (!n.started) return [T0, NOW]; // teasers: timeless presence
+    // Stealth ideas exist only in the present: they never appear in the past
+    // during the tour or while scrubbing.
+    if (!n.started) return [NOW, NOW];
     const start = Date.parse(n.started);
     const end = n.ended
       ? Date.parse(n.ended)
@@ -527,7 +529,7 @@ async function init(root: HTMLElement) {
 
   // Animation state: labels type in / fade out; node visibility and cluster
   // geometry are smoothed so nothing pops or snaps as the era changes.
-  const labelAnim = new Map<string, { alpha: number; typed: number }>();
+  const labelAnim = new Map<string, { alpha: number; typed: number; bornAt: number }>();
   const clusterAlpha = new Map<string, number>();
   const clusterGeo = new Map<string, { cx: number; cy: number; r: number }>();
   const nodeVis = new Map<string, number>();
@@ -705,19 +707,15 @@ async function init(root: HTMLElement) {
       // Label hierarchy: flagships and the hovered node at rest; everything
       // when zoomed in. During the intro sweep, ideas being born near the
       // focus year announce themselves so the tour reads as a story.
-      // During the sweep a label types the moment its dot is born (its start
-      // crossing the window's leading edge), and holds briefly after.
-      const born = startMsOf.get(n.id);
-      const wEdge = focus + ahead;
+      // During the sweep a label types the moment its dot appears on screen
+      // (wall-clock anchored), and holds ~2.6s before fading.
+      const st = labelAnim.get(n.id) ?? { alpha: 0, typed: 0, bornAt: 0 };
+      if (sweepActive && sv > 0.03 && st.bornAt === 0) st.bornAt = t;
+      if (!sweepActive && st.bornAt !== 0) st.bornAt = 0;
+      const birthLabel = sweepActive && st.bornAt > 0 && t - st.bornAt < 2600;
       const labelWorthy =
-        isActive ||
-        (n.scale ?? 2) >= 4 ||
-        transform.k >= 1.2 ||
-        (sweepActive && born !== undefined && born <= wEdge && wEdge - born < 1.6 * YEAR);
+        isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2 || birthLabel;
       const zoomAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
-
-      // type in, fade out
-      const st = labelAnim.get(n.id) ?? { alpha: 0, typed: 0 };
       const wanted = labelWorthy && visible;
       if (wanted) {
         st.alpha = Math.min(1, st.alpha + dt / 150);
