@@ -6,7 +6,7 @@
     "freshness": 0.97,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T21:07:44.299Z"
+    "checkedAt": "2026-08-02T21:11:36.736Z"
   },
   "brainmap": {
     "repo": "GraysonCAdams/brainmap",
@@ -15,15 +15,15 @@
     "freshness": 1,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T21:07:44.471Z"
+    "checkedAt": "2026-08-02T21:11:36.765Z"
   },
   "ente-jellyfin": {
     "repo": "GraysonCAdams/ente-jellyfin",
     "missing": false,
     "pushedAt": "2026-07-14T03:58:18Z",
-    "freshness": 0.927,
+    "freshness": 0.926,
     "language": "Go",
     "stars": 0,
-    "checkedAt": "2026-08-02T21:07:44.644Z"
+    "checkedAt": "2026-08-02T21:11:36.793Z"
   }
 }
