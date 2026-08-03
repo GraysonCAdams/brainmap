@@ -1227,34 +1227,34 @@ async function init(root: HTMLElement) {
       // employer or for himself is the single fact most likely to be misread
       // on a portfolio, and the map otherwise draws them identically.
       if (n.org && n.visibility === 'public') {
-        const s = r * 0.62; // width of the case
-        const bx = x + r * 0.72;
-        const by = y - r * 0.72;
-        const h = s * 0.72;
+        // Cut out of the dot itself rather than badged onto its shoulder. A
+        // badge adds a second object to track at every node and collides with
+        // neighbours in a dense cluster; a knockout changes the dot's own
+        // texture, so employer work reads as a different KIND of dot instead
+        // of a dot wearing a sticker.
+        //
+        // Drawn as paths, not an emoji, so it stays crisp across the zoom
+        // range and depends on no font the visitor may lack.
+        const w = r * 0.92; // case width
+        const h = r * 0.62; // case height
+        const cut = n.status === 'idea' ? color : GROUND;
         ctx.globalAlpha = alpha;
-        // Knocked out of the ground so the dot never bleeds through the icon.
-        ctx.fillStyle = GROUND;
+        ctx.fillStyle = cut;
+        ctx.strokeStyle = cut;
+        ctx.lineWidth = Math.max(0.5, Math.min(1.1, r * 0.11));
+        // handle, sitting on the lid
         ctx.beginPath();
-        ctx.arc(bx, by, s * 0.95, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.lineWidth = Math.max(0.6, 1 / transform.k);
-        // handle
-        ctx.beginPath();
-        ctx.moveTo(bx - s * 0.22, by - h * 0.5);
-        ctx.lineTo(bx - s * 0.22, by - h * 0.78);
-        ctx.lineTo(bx + s * 0.22, by - h * 0.78);
-        ctx.lineTo(bx + s * 0.22, by - h * 0.5);
+        ctx.moveTo(x - w * 0.2, y - h * 0.42);
+        ctx.lineTo(x - w * 0.2, y - h * 0.78);
+        ctx.lineTo(x + w * 0.2, y - h * 0.78);
+        ctx.lineTo(x + w * 0.2, y - h * 0.42);
         ctx.stroke();
-        // case
-        ctx.beginPath();
-        ctx.rect(bx - s * 0.62, by - h * 0.5, s * 1.24, h);
-        ctx.fill();
-        // clasp: a notch of ground across the middle so it reads as a case
-        ctx.fillStyle = GROUND;
-        ctx.fillRect(bx - s * 0.16, by - h * 0.5, s * 0.32, h * 0.34);
+        // case body
+        ctx.fillRect(x - w * 0.5, y - h * 0.42, w, h);
+        // clasp: a sliver of the dot's own colour back through the middle, so
+        // the shape reads as a case rather than a plain rectangle
+        ctx.fillStyle = n.status === 'idea' ? GROUND : color;
+        ctx.fillRect(x - w * 0.09, y - h * 0.42, w * 0.18, h * 0.42);
       }
 
       // Label hierarchy: flagships and the hovered node at rest; everything
