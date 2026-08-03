@@ -738,6 +738,7 @@ async function init(root: HTMLElement) {
       tick();
     };
 
+  const OPENING_HOLD_MS = 3000; // beat on the first year before the clock runs
   const LINGER_MS = 1600;
     const HOLD_MS = 2600; // sit on the finished map before explaining it
     const NARROW_MS = 2200; // range selector shrinking to its resting width
@@ -757,8 +758,13 @@ async function init(root: HTMLElement) {
       const step = (nowMs: number) => {
         if (!sweepActive) return;
         const elapsed = Math.max(0, nowMs - t0ms);
-        const u = Math.min(1, elapsed / SWEEP_MS);
-        focus = focusAt(elapsed);
+        // Hold on the very first year before the clock starts moving. The
+        // opening dot is the only one that arrives with no prior context, and
+        // without a beat here it is on screen and superseded before a reader
+        // has registered that anything appeared. Every later dot lands against
+        // a map that already means something; this one has to establish it.
+        const u = Math.min(1, elapsed / (SWEEP_MS + OPENING_HOLD_MS));
+        focus = focusAt(Math.max(0, elapsed - OPENING_HOLD_MS));
         renderTimeline();
         if (u < 1) {
           sweepRaf = requestAnimationFrame(step);
