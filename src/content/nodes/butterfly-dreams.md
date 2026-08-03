@@ -6,8 +6,8 @@ status: retired
 domain: apps
 parent: freelance-web
 detail: parent
-started: 2016-01-01
-ended: 2016-12-31
+started: 2014-01-01
+ended: 2014-12-31
 tech: [wordpress]
 ---
 
