@@ -1,0 +1,14 @@
+# Local secrets for `npm run cf` (wrangler pages dev).
+# Copy to .dev.vars, which is gitignored. Production values live in the
+# Cloudflare Pages dashboard, not here.
+#
+#   cp .dev.vars.example .dev.vars   then fill in ANTHROPIC_API_KEY
+
+# The only value you actually need to supply. Use a spend-capped key.
+ANTHROPIC_API_KEY=sk-ant-REPLACE-ME
+
+# Cloudflare's official ALWAYS-PASSES test secret. Correct for local dev:
+# it lets the endpoint run without standing up a real Turnstile widget, and
+# it is a published test value rather than a credential.
+# Production uses the real secret from the dashboard.
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA

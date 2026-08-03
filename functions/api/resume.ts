@@ -89,13 +89,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   const interest = typeof body.interest === 'string' ? body.interest.slice(0, 500) : '';
 
-  // Turnstile
+  // Turnstile. An absent token is a misconfigured page, not a failed human:
+  // Cloudflare rejects an empty response even with the always-passes test
+  // secret, so without this branch a missing PUBLIC_TURNSTILE_SITEKEY sends
+  // every visitor to "Anti-bot check failed. Reload and try again." forever,
+  // and reloading is exactly what cannot help.
+  const token = String(body.turnstileToken ?? '');
+  if (!token) {
+    return json(400, {
+      error:
+        'The anti-bot widget did not load, so this form cannot be submitted. That is a site configuration problem, not you.',
+    });
+  }
   const verify = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       secret: env.TURNSTILE_SECRET,
-      response: String(body.turnstileToken ?? ''),
+      response: token,
       remoteip: request.headers.get('CF-Connecting-IP'),
     }),
   });
@@ -112,10 +123,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     env.RESUME_KV.get(ipKey).then((v) => Number(v ?? 0)),
   ]);
   if (gCount >= GLOBAL_LIMIT) {
-    return json(429, { error: "Today's generation budget (5) is used up. Try again tomorrow, or just read the write-ups." });
+    return json(429, {
+      error:
+        "Today's generation budget (5) is used up. Try again tomorrow, or just read the write-ups.",
+    });
   }
   if (ipCount >= IP_LIMIT) {
-    return json(429, { error: 'You have hit the per-visitor limit for today.' });
+    return json(429, {
+      error: 'You have hit the per-visitor limit for today.',
+    });
   }
   await Promise.all([
     env.RESUME_KV.put(gKey, String(gCount + 1), { expirationTtl: 172800 }),
@@ -143,38 +159,79 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const material = nodeDocs.filter(Boolean).join('\n\n').slice(0, 120_000);
   if (!material) return json(502, { error: 'No project material available.' });
 
+  // Everything from here can throw (network, auth, model error). An uncaught
+  // throw in a Pages Function returns a raw stack trace to the browser, which
+  // leaks file paths and internals, and it also strands the budget reserved
+  // above. Both are handled below; see `refund`.
+  const refund = async () => {
+    await Promise.all([
+      env.RESUME_KV!.put(gKey, String(gCount), { expirationTtl: 172800 }),
+      env.RESUME_KV!.put(ipKey, String(ipCount), { expirationTtl: 172800 }),
+    ]).catch(() => {});
+  };
+
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const response = await client.beta.messages.create({
-    model: 'claude-opus-5',
-    max_tokens: 4096,
-    output_config: {
-      effort: 'medium',
-      format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
-    },
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: [
-      'You tailor the TEXT of Grayson Adams\'s resume for a visitor to his portfolio site.',
-      'HARD RULES:',
-      '- Never invent facts. Every bullet must be grounded in the FACTS or PROJECT MATERIAL provided. You may rephrase and re-order to emphasize the visitor\'s interests; you may never add employers, titles, dates, metrics, or technologies that are not in the source.',
-      '- skillsets: exactly 5 rows, keep the original labels, re-order items within each value to lead with what is most relevant.',
-      '- selectedProjects: YOU choose the 2-4 projects from the PROJECT MATERIAL most relevant to the visitor\'s stated interest (if none stated, choose the strongest shipped work). Title verbatim from the material, 1-2 bullets each drawn from its Problem/Approach/Edge cases/Outcome; write in resume voice (past-tense verb first). Skip placeholder/draft material that lacks substance.',
-      '- experienceBullets: one entry per experience id, bullets chosen from that job\'s original bullets (rephrasing allowed, count must not exceed the original count). Total across all jobs at most 12 so everything fits on one page; keep at least 1 bullet per job and weight the extra bullets toward the most relevant jobs.',
-      '- No em dashes in output text; use plain ASCII punctuation.',
-    ].join('\n'),
-    messages: [
-      {
-        role: 'user',
-        content: `FACTS (canonical, JSON):\n${JSON.stringify(facts)}\n\nPROJECT MATERIAL (all public projects; select the most relevant):\n${material}\n\nVISITOR'S STATED INTEREST: ${interest || '(none given)'}\n\nProduce the tailored resume text.`,
+  let response;
+  try {
+    response = await client.beta.messages.create({
+      model: 'claude-opus-5',
+      max_tokens: 4096,
+      output_config: {
+        effort: 'medium',
+        format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
       },
-    ],
-  });
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      system: [
+        "You tailor the TEXT of Grayson Adams's resume for a visitor to his portfolio site.",
+        'HARD RULES:',
+        "- Never invent facts. Every bullet must be grounded in the FACTS or PROJECT MATERIAL provided. You may rephrase and re-order to emphasize the visitor's interests; you may never add employers, titles, dates, metrics, or technologies that are not in the source.",
+        '- skillsets: exactly 5 rows, keep the original labels, re-order items within each value to lead with what is most relevant.',
+        "- selectedProjects: YOU choose the 2-4 projects from the PROJECT MATERIAL most relevant to the visitor's stated interest (if none stated, choose the strongest shipped work). Title verbatim from the material, 1-2 bullets each drawn from its Problem/Approach/Edge cases/Outcome; write in resume voice (past-tense verb first). Skip placeholder/draft material that lacks substance.",
+        "- experienceBullets: one entry per experience id, bullets chosen from that job's original bullets (rephrasing allowed, count must not exceed the original count). Total across all jobs at most 12 so everything fits on one page; keep at least 1 bullet per job and weight the extra bullets toward the most relevant jobs.",
+        '- No em dashes in output text; use plain ASCII punctuation.',
+      ].join('\n'),
+      messages: [
+        {
+          role: 'user',
+          content: `FACTS (canonical, JSON):\n${JSON.stringify(facts)}\n\nPROJECT MATERIAL (all public projects; select the most relevant):\n${material}\n\nVISITOR'S STATED INTEREST: ${interest || '(none given)'}\n\nProduce the tailored resume text.`,
+        },
+      ],
+    });
+  } catch (err) {
+    // A generation that never happened must not spend the day's budget. With
+    // a global ceiling of five, a handful of upstream errors would otherwise
+    // lock every visitor out until UTC midnight for requests that produced
+    // nothing.
+    await refund();
+    console.error('resume generation failed', err);
+    return json(502, {
+      error: 'Generation failed upstream. Try again in a moment.',
+    });
+  }
 
   if (response.stop_reason === 'refusal') {
-    return json(502, { error: 'Generation was declined. Try a different selection.' });
+    await refund();
+    return json(502, {
+      error: 'Generation was declined. Try a different selection.',
+    });
   }
   const text = response.content.find((b) => b.type === 'text');
-  if (!text || text.type !== 'text') return json(502, { error: 'Generation failed. Try again.' });
+  if (!text || text.type !== 'text') {
+    await refund();
+    return json(502, { error: 'Generation failed. Try again.' });
+  }
+  let result: unknown;
+  try {
+    result = JSON.parse(text.text);
+  } catch {
+    // Schema-constrained output should always parse; if it somehow does not,
+    // that is our failure and the visitor should not be charged for it.
+    await refund();
+    return json(502, {
+      error: 'Generation returned malformed data. Try again.',
+    });
+  }
 
-  return json(200, { result: JSON.parse(text.text), remainingToday: GLOBAL_LIMIT - gCount - 1 });
+  return json(200, { result, remainingToday: GLOBAL_LIMIT - gCount - 1 });
 };

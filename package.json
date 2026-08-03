@@ -8,7 +8,8 @@
     "enrich": "node scripts/enrich.mjs",
     "prebuild": "node scripts/enrich.mjs",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "cf": "PUBLIC_TURNSTILE_SITEKEY=1x00000000000000000000AA npm run build && wrangler pages dev dist --port 8788 --kv RESUME_KV --kv CONTACT_KV --compatibility-date=2026-08-01"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -24,6 +25,7 @@
     "@cloudflare/workers-types": "^5.20260801.1",
     "@types/d3-force": "^3.0.10",
     "@types/d3-selection": "^3.0.11",
-    "@types/d3-zoom": "^3.0.8"
+    "@types/d3-zoom": "^3.0.8",
+    "wrangler": "^4.118.0"
   }
 }

@@ -11,3 +11,6 @@ node_modules/
 .DS_Store
 .screenshots/
 research/
+# local Cloudflare Functions secrets (never committed; see .dev.vars.example)
+.dev.vars
+.wrangler/
