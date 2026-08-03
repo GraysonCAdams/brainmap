@@ -1266,8 +1266,21 @@ async function init(root: HTMLElement) {
       if (sweepActive && sv > 0.03 && st.bornAt === 0) st.bornAt = t;
       if (!sweepActive && st.bornAt !== 0) st.bornAt = 0;
       const birthLabel = sweepActive && st.bornAt > 0 && t - st.bornAt < 2600;
-      const labelWorthy =
-        isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2 || birthLabel;
+      // Satellites label on hover and on deep zoom only.
+      //
+      // They are packed at roughly a third of the ambient node spacing, which
+      // is what makes a system read as one object, but their labels are full
+      // width horizontal text. Twelve of them inside one ring is a solid block
+      // of overlapping words that hides the parent's own label underneath it.
+      //
+      // The grouping is the information at this scale: a reader should see one
+      // system with a dozen members and reach for a specific member on purpose,
+      // via hover or by zooming into it. Naming all twelve unprompted answers
+      // a question nobody asked and destroys the thing it is labelling.
+      const isSat = isChild(n);
+      const labelWorthy = isSat
+        ? isActive || transform.k >= 2.6
+        : isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2 || birthLabel;
       const zoomAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
       const wanted = labelWorthy && visible;
       if (wanted) {
