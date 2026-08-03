@@ -3,8 +3,8 @@ title: Todoist Bridge
 tagline: Tasks captured anywhere end up in one list.
 scale: 2
 status: shipped
-domain: workflows
-tags: [utilities]
+domain: tools
+tags: [tools]
 started: 2025-12-02
 links: [morning-routine]
 tech: [typescript, docker, google-tasks, alexa]

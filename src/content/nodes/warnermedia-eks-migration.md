@@ -4,7 +4,7 @@ tagline: Migrating an entire production streaming workload onto managed Kubernet
 scale: 4
 org: WarnerMedia
 status: retired
-domain: infra
+domain: platform
 started: 2019-06-01
 ended: 2021-07-01
 links: [homelab-kubernetes, warnermedia-telemetry]

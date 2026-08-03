@@ -4,8 +4,8 @@ tagline: Automated outage intake and on-call alerting, leading the team that bui
 scale: 3
 org: AT&T
 status: retired
-domain: workflows
-tags: [infra]
+domain: tools
+tags: [platform]
 started: 2024-06-01
 ended: 2024-09-01
 links: [att-azure-migrations, home-assistant]

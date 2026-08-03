@@ -3,7 +3,7 @@ title: Never Interrupt
 tagline: An automation that is ninety percent refusing to run, and that is the feature.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2020-08-04
 ended: 2022-01-01

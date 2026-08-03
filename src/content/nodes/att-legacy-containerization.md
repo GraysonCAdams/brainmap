@@ -4,8 +4,8 @@ tagline: Rewriting old codebases into modern ones without breaking what people r
 scale: 3
 org: AT&T
 status: retired
-domain: infra
-tags: [apps]
+domain: platform
+tags: [products]
 started: 2021-07-01
 ended: 2024-06-01
 links: [att-azure-migrations]

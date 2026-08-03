@@ -4,7 +4,7 @@ tagline: A shared AI assistant for two people, self-hosted with a common memory.
 scale: 3
 status: shipped
 domain: ai-tooling
-tags: [apps]
+tags: [products]
 started: 2026-04-06
 links: [mcp-gateway, box-stack]
 tech: [open-webui, litellm, mcp, docker]

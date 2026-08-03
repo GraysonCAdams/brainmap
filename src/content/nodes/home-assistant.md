@@ -3,8 +3,8 @@ title: Home Assistant
 tagline: Seven years of home automation that started with server alerts, not lights.
 scale: 4
 status: shipped
-domain: home-automation
-tags: [infra, workflows]
+domain: home
+tags: [platform, client-work]
 started: 2019-10-08
 links: [homelab-kubernetes, morning-routine, litterbox-loop]
 tech: [home-assistant, yaml, rest, templating]

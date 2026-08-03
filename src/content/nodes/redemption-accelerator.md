@@ -3,7 +3,7 @@ title: Redemption Accelerator
 tagline: Built the whole automation chain at fifteen, then decided to stay on the alerting side of it.
 scale: 2
 status: retired
-domain: apps
+domain: products
 started: 2011-03-01
 ended: 2011-12-31
 links: [gtotechnology, fast-alerts]

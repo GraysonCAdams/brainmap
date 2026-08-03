@@ -4,8 +4,8 @@ tagline: Cut infrastructure deployment from five days to under ten minutes.
 scale: 4
 org: Harris Associates
 status: building
-domain: infra
-tags: [workflows]
+domain: platform
+tags: [client-work]
 started: 2024-09-01
 links: [harris-pipeline-security, homelab-kubernetes]
 tech: [terraform, kubernetes, azure, databricks]

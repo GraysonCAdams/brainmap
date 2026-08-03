@@ -3,7 +3,7 @@ title: dibs.gifts
 tagline: A family wishlist where claiming a gift stays hidden from the person who asked for it.
 scale: 2
 status: shipped
-domain: apps
+domain: products
 started: 2025-11-18
 links: []
 tech: [nextjs, trpc, typescript, magic-links]

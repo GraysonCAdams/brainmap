@@ -3,8 +3,8 @@ title: IMAP Watcher
 tagline: Email screening backed by contact groups instead of filter rules.
 scale: 1
 status: shipped
-domain: utilities
-tags: [workflows]
+domain: tools
+tags: [client-work]
 started: 2025-10-02
 links: [dex-contacts]
 tech: [javascript, imap, carddav]

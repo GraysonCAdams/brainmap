@@ -4,8 +4,8 @@ tagline: Running the web presence for a university's newspaper and radio station
 scale: 2
 org: KSU Student Media
 status: retired
-domain: apps
-tags: [workflows, media]
+domain: tools
+tags: [client-work, media]
 started: 2014-08-01
 ended: 2016-05-01
 links: [ksu-owl-radio, freelance-web]

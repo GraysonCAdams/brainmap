@@ -3,7 +3,7 @@ title: The Legal Nurse
 tagline: Moved off a site builder onto WordPress, and credited to my full name.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2015-01-01

@@ -3,7 +3,7 @@ title: JoinLobbies
 tagline: The generalized rewrite, spanning fifteen games across every platform.
 scale: 3
 status: retired
-domain: apps
+domain: products
 started: 2014-07-01
 ended: 2017-07-01
 links: [adventurelobbies, halolobbies]

@@ -3,8 +3,8 @@ title: Freelance Web Work
 tagline: Twenty-plus clients over a decade, run like a shop from high school onward.
 scale: 3
 status: retired
-domain: apps
-tags: [workflows]
+domain: client-work
+tags: [client-work]
 started: 2010-01-01
 ended: 2022-02-01
 links: [graysonadams-dot-com]

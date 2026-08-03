@@ -3,8 +3,8 @@ title: Dex Contacts
 tagline: Mentioning a person in my notes pulls in who they actually are.
 scale: 2
 status: shipped
-domain: utilities
-tags: [apps]
+domain: tools
+tags: [products]
 started: 2025-10-27
 links: [obsidian-quiz-generator, imap-watcher]
 tech: [typescript, obsidian, carddav]

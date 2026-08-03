@@ -4,7 +4,7 @@ tagline: End-to-end-encrypted family videos, streaming to the living room TV.
 scale: 4
 status: shipped
 domain: media
-tags: [apps]
+tags: [products]
 started: 2026-07-05
 repo: GraysonCAdams/ente-jellyfin
 links: [vhs-restoration]

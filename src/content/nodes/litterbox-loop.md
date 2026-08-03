@@ -3,7 +3,7 @@ title: Litter Box Loop
 tagline: Three vendors that share nothing, negotiating a cleanup between themselves.
 scale: 1
 status: shipped
-domain: home-automation
+domain: home
 started: 2026-06-25
 links: [morning-routine, home-assistant]
 tech: [home-assistant, automations]

@@ -3,7 +3,7 @@ title: COD Drop
 tagline: Everyone's hype song, timed so the beat lands the instant the squad jumps.
 scale: 2
 status: retired
-domain: apps
+domain: products
 tags: [media]
 started: 2021-01-13
 ended: 2023-08-29

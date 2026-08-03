@@ -3,7 +3,7 @@ title: Seam
 tagline: An Android messenger that treats each platform as a pluggable piece.
 scale: 3
 status: building
-domain: apps
+domain: products
 started: 2025-12-28
 tech: [kotlin, jetpack-compose, android, bluebubbles]
 ---

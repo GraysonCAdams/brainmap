@@ -3,7 +3,7 @@ title: The Deliverables Checklist
 tagline: Scope, e-signed as its own document, because the contract alone never held.
 scale: 2
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 started: 2021-04-01
 ended: 2021-05-31

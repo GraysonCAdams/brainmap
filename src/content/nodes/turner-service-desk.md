@@ -4,8 +4,8 @@ tagline: Two ticketing systems and two chat platforms, made to talk to each othe
 scale: 2
 org: Turner Broadcasting
 status: retired
-domain: workflows
-tags: [apps]
+domain: tools
+tags: [products]
 started: 2017-05-01
 ended: 2017-08-01
 links: [turner-stream-monitor]

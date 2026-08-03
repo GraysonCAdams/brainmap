@@ -3,7 +3,7 @@ title: Brain Map
 tagline: This site. A living graph of ideas and what became of them.
 scale: 3
 status: building
-domain: apps
+domain: products
 tags: [ai-tooling]
 started: 2026-08-02
 repo: GraysonCAdams/brainmap

@@ -3,7 +3,7 @@ title: Butterfly Dreams Farm
 tagline: Nonprofit, pro bono. The second of the two I never billed.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2014-01-01

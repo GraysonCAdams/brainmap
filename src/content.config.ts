@@ -6,15 +6,29 @@ import { glob } from 'astro/loaders';
  * Adding a domain: extend this tuple, then give it a validated color token in
  * the design tokens (one place each; re-run the dataviz palette validator).
  */
+/**
+ * One axis: who was this for, and what was it for them.
+ *
+ * The previous set mixed three axes at once, problem domain (media, home),
+ * artifact type (apps, utilities, workflows) and technology era (ai-tooling),
+ * and a mixed axis always grows a sink bucket. `apps` became it, holding 30 of
+ * 77 nodes and telling a reader nothing: a 200,000-user product and a personal
+ * Todoist bridge rendered the same colour.
+ *
+ * The split that carries the most information is who used the thing, so that
+ * is the axis. `ai-tooling` stays deliberately, despite being time-stamped:
+ * on a map whose primary axis is time, marking when the work happened is a
+ * feature rather than a wart.
+ */
 export const DOMAINS = [
-  'home-automation',
+  'home',
   'security',
-  'utilities',
+  'tools',
   'media',
   'ai-tooling',
-  'apps',
-  'infra',
-  'workflows',
+  'products',
+  'client-work',
+  'platform',
 ] as const;
 
 /**
@@ -24,14 +38,14 @@ export const DOMAINS = [
  * No hyphens: a slug reads as a slug, and these are meant to read as words.
  */
 export const DOMAIN_LABELS: Record<(typeof DOMAINS)[number], string> = {
-  'home-automation': 'home',
+  home: 'home',
   security: 'security',
-  utilities: 'utilities',
+  tools: 'tools',
   media: 'media',
   'ai-tooling': 'ai tooling',
-  apps: 'apps',
-  infra: 'infra',
-  workflows: 'workflows',
+  products: 'products',
+  'client-work': 'client work',
+  platform: 'platform',
 };
 
 export const STATUSES = ['idea', 'building', 'shipped', 'retired'] as const;

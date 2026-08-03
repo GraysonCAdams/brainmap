@@ -4,8 +4,8 @@ tagline: A Node.js portal for voicemail and directory, built during a co-op.
 scale: 2
 org: Cox Communications
 status: retired
-domain: apps
-tags: [utilities]
+domain: tools
+tags: [tools]
 started: 2016-01-01
 ended: 2016-12-01
 links: [ksu-student-media, turner-stream-monitor]

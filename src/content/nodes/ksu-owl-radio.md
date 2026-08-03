@@ -5,7 +5,7 @@ scale: 3
 org: KSU Student Media
 status: retired
 domain: media
-tags: [infra]
+tags: [platform]
 started: 2015-01-01
 ended: 2016-05-01
 links: [ksu-student-media, halolobbies]

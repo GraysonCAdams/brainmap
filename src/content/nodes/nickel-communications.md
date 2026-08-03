@@ -3,7 +3,7 @@ title: Nickel Communications
 tagline: A PR agency site, built under password protection for months before launch.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2015-01-01

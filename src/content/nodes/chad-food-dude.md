@@ -3,7 +3,7 @@ title: Chad The Food Dude
 tagline: Food blogger, and the last site I built. A cloud droplet, not shared hosting.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2022-01-01

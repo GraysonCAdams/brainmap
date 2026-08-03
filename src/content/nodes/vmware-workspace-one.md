@@ -4,8 +4,8 @@ tagline: Moving federal and corporate fleets onto a new device-management platfo
 scale: 2
 org: VMware
 status: retired
-domain: infra
-tags: [workflows]
+domain: platform
+tags: [client-work]
 started: 2018-07-01
 ended: 2019-06-01
 links: [freelance-web]

@@ -3,7 +3,7 @@ title: Emergency Unlock
 tagline: The door my phone unlocks, and what happens when my phone dies.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2021-05-31
 ended: 2022-06-01

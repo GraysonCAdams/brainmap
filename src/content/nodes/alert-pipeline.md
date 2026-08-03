@@ -3,7 +3,7 @@ title: The Alert Pipeline
 tagline: Two regions, a written one-minute SLA, and a phone emulator watching a store app because the API would not talk.
 scale: 3
 status: retired
-domain: apps
+domain: products
 parent: fast-alerts
 started: 2021-08-01
 ended: 2023-05-01

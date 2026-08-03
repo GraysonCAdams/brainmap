@@ -3,7 +3,7 @@ title: psychological.com
 tagline: A practice site I have now maintained, on and off, for over a decade.
 scale: 1
 status: shipped
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2015-01-01

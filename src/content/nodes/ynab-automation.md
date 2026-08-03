@@ -3,8 +3,8 @@ title: YNAB Automation Suite
 tagline: When the bank aggregators kept breaking, I logged in like a human instead.
 scale: 3
 status: retired
-domain: utilities
-tags: [workflows]
+domain: tools
+tags: [client-work]
 started: 2023-01-28
 ended: 2026-03-09
 links: [homelab-kubernetes]

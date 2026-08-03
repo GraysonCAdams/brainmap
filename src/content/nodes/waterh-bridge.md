@@ -3,8 +3,8 @@ title: Hydration Bridge
 tagline: A smart water bottle's cloud, reverse-engineered into my own health tracker.
 scale: 2
 status: shipped
-domain: utilities
-tags: [home-automation]
+domain: tools
+tags: [home]
 started: 2026-07-01
 links: []
 tech: [python, reverse-engineering, nomad]

@@ -3,7 +3,7 @@ title: Severe Weather Escalation
 tagline: Storms respect quiet hours. Tornadoes do not.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2021-03-26
 ended: 2022-06-01

@@ -4,7 +4,7 @@ tagline: Decades of family tape, restored to something worth watching.
 scale: 3
 status: shipped
 domain: media
-tags: [workflows]
+tags: [client-work]
 started: 2026-05-01
 links: []
 tech: [ffmpeg, topaz, syncnet, exiftool]

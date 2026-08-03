@@ -3,7 +3,7 @@ title: Unrecognized Entry
 tagline: Motion while I am out does not just alert me, it addresses the room.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2020-08-04
 ended: 2022-01-01

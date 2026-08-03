@@ -3,8 +3,8 @@ title: Morning Routine Orchestration
 tagline: One automation runs the morning, and it survived the outage that taught me why.
 scale: 2
 status: shipped
-domain: home-automation
-tags: [workflows]
+domain: home
+tags: [client-work]
 started: 2026-06-15
 links: [litterbox-loop, home-assistant]
 tech: [home-assistant, automations, templating]

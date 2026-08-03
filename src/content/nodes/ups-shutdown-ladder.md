@@ -3,7 +3,7 @@ title: The Shutdown Ladder
 tagline: A lamp in the living room that tells you the power state of the rack.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2020-07-19
 ended: 2022-01-01

@@ -4,8 +4,8 @@ tagline: A Python service shipping 120+ million metrics into three observability
 scale: 3
 org: WarnerMedia
 status: retired
-domain: infra
-tags: [utilities]
+domain: platform
+tags: [tools]
 started: 2020-01-01
 ended: 2021-07-01
 links: [warnermedia-eks-migration]

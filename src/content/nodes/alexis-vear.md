@@ -3,7 +3,7 @@ title: Alexis Vear
 tagline: Musician site, and the first client listed as a reference on my resume.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 
 parent: freelance-web
 detail: parent

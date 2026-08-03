@@ -3,8 +3,8 @@ title: Calendar Merge
 tagline: Many calendars in, one clean shared calendar out.
 scale: 2
 status: shipped
-domain: utilities
-tags: [workflows]
+domain: tools
+tags: [client-work]
 started: 2026-06-20
 links: [box-stack]
 tech: [python, caldav, nomad]

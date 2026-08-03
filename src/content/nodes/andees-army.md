@@ -3,7 +3,7 @@ title: Andee's Army
 tagline: Nonprofit, pro bono. Listed under volunteerism, not clients.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2013-01-01

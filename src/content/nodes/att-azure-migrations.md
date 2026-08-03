@@ -4,7 +4,7 @@ tagline: Million-dollar migrations where the architecture and the budget were th
 scale: 4
 org: AT&T
 status: retired
-domain: infra
+domain: platform
 started: 2021-07-01
 ended: 2024-06-01
 links: [att-legacy-containerization]

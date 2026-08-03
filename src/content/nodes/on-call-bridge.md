@@ -3,7 +3,7 @@ title: The On-Call Bridge
 tagline: My employer's pager, wired into the apartment, with a watchdog on the pager itself.
 scale: 2
 status: retired
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2020-02-18
 ended: 2021-06-01

@@ -3,8 +3,8 @@ title: Modded Minecraft Server
 tagline: A private modded server for friends, run on my own hardware.
 scale: 2
 status: retired
-domain: apps
-tags: [infra]
+domain: tools
+tags: [platform]
 started: 2019-01-01
 ended: 2021-12-31
 links: [homelab-kubernetes, adventurelobbies]

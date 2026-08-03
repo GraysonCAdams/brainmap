@@ -3,7 +3,7 @@ title: Block Select
 tagline: Click a header, select everything under it.
 scale: 1
 status: shipped
-domain: utilities
+domain: tools
 started: 2025-10-28
 links: [swiper]
 tech: [typescript, obsidian]

@@ -3,7 +3,7 @@ title: The Community Economy
 tagline: Points, a wheel, weekly challenges and a monthly shop, on a product that refused to sell advantage.
 scale: 3
 status: retired
-domain: apps
+domain: products
 parent: fast-alerts
 started: 2022-01-01
 ended: 2023-05-01

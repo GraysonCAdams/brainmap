@@ -3,7 +3,7 @@ title: Kyle Young
 tagline: An artist's site, and the one still running a decade later.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2016-01-01

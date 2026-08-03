@@ -3,8 +3,8 @@ title: Home Assistant Add-ons
 tagline: Reviving abandoned add-ons because something I depend on stopped shipping.
 scale: 2
 status: shipped
-domain: home-automation
-tags: [infra]
+domain: home
+tags: [platform]
 started: 2025-11-06
 links: [home-assistant]
 tech: [docker, shell, jinja]

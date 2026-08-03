@@ -3,7 +3,7 @@ title: Swiper
 tagline: Swipe a line to indent it, on a phone.
 scale: 1
 status: shipped
-domain: utilities
+domain: tools
 started: 2025-10-30
 links: [block-select]
 tech: [typescript, obsidian, ios]

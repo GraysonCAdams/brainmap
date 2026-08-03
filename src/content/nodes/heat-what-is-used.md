@@ -3,7 +3,7 @@ title: Heat What Gets Used
 tagline: The bedroom does not warm on a schedule, it warms once a light proves someone got up.
 scale: 2
 status: shipped
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2023-07-26
 tech: [home-assistant, climate, presence]

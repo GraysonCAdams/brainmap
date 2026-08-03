@@ -1196,6 +1196,45 @@ async function init(root: HTMLElement) {
         ctx.stroke();
       }
 
+      // Employer work carries a briefcase. Drawn as paths rather than an emoji
+      // or an icon font: it has to stay crisp through the full zoom range and
+      // must not depend on a glyph the visitor's system may not have.
+      //
+      // It appears the moment the sweep reaches the first professional role and
+      // never before, which is the point. Whether a thing was built for an
+      // employer or for himself is the single fact most likely to be misread
+      // on a portfolio, and the map otherwise draws them identically.
+      if (n.org && n.visibility === 'public') {
+        const s = r * 0.62; // width of the case
+        const bx = x + r * 0.72;
+        const by = y - r * 0.72;
+        const h = s * 0.72;
+        ctx.globalAlpha = alpha;
+        // Knocked out of the ground so the dot never bleeds through the icon.
+        ctx.fillStyle = GROUND;
+        ctx.beginPath();
+        ctx.arc(bx, by, s * 0.95, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = Math.max(0.6, 1 / transform.k);
+        // handle
+        ctx.beginPath();
+        ctx.moveTo(bx - s * 0.22, by - h * 0.5);
+        ctx.lineTo(bx - s * 0.22, by - h * 0.78);
+        ctx.lineTo(bx + s * 0.22, by - h * 0.78);
+        ctx.lineTo(bx + s * 0.22, by - h * 0.5);
+        ctx.stroke();
+        // case
+        ctx.beginPath();
+        ctx.rect(bx - s * 0.62, by - h * 0.5, s * 1.24, h);
+        ctx.fill();
+        // clasp: a notch of ground across the middle so it reads as a case
+        ctx.fillStyle = GROUND;
+        ctx.fillRect(bx - s * 0.16, by - h * 0.5, s * 0.32, h * 0.34);
+      }
+
       // Label hierarchy: flagships and the hovered node at rest; everything
       // when zoomed in. During the intro sweep, ideas being born near the
       // focus year announce themselves so the tour reads as a story.

@@ -3,8 +3,8 @@ title: Homelab Kubernetes
 tagline: Five years of running a real cluster at home; it became the career.
 scale: 4
 status: retired
-domain: infra
-tags: [home-automation, media, workflows]
+domain: platform
+tags: [home, media, client-work]
 started: 2020-10-24
 ended: 2025-02-05
 links: [box-stack, ynab-automation]

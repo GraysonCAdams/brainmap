@@ -3,7 +3,7 @@ title: Cameras Off When Home
 tagline: Privacy enforced by cutting power, not by trusting a setting.
 scale: 2
 status: shipped
-domain: home-automation
+domain: home
 parent: home-assistant
 started: 2023-07-27
 tech: [home-assistant, smart-plugs, presence]

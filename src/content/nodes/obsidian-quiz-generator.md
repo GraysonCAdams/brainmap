@@ -4,7 +4,7 @@ tagline: Took over an abandoned plugin that turns notes into exam questions.
 scale: 2
 status: shipped
 domain: ai-tooling
-tags: [apps]
+tags: [products]
 started: 2025-11-03
 links: [dex-contacts]
 tech: [typescript, obsidian, anthropic-api, ollama]

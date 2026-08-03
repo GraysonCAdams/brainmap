@@ -3,7 +3,7 @@ title: Medical Case Consultants
 tagline: The first site with my name in the footer. I was fifteen, and I still maintain it.
 scale: 2
 status: shipped
-domain: apps
+domain: client-work
 parent: freelance-web
 started: 2011-01-01
 links: [graysonadams-dot-com]

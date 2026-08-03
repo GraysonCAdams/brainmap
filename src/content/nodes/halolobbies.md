@@ -3,7 +3,7 @@ title: HaloLobbies
 tagline: Built over one Christmas break; 20,000 sessions in the first month.
 scale: 3
 status: retired
-domain: apps
+domain: products
 started: 2015-12-01
 ended: 2016-07-01
 links: [joinlobbies]

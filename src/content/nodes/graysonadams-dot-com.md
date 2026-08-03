@@ -4,7 +4,7 @@ tagline: A personal domain I kept rebuilding from kindergarten to the homelab er
 scale: 2
 status: retired
 domain: media
-tags: [apps, infra]
+tags: [products, platform]
 started: 2003-01-01
 ended: 2020-08-01
 links: [learned-to-code, gtotechnology, joinlobbies, freelance-web]

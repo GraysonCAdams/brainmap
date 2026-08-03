@@ -5,7 +5,7 @@ scale: 3
 org: Harris Associates
 status: building
 domain: security
-tags: [workflows, infra]
+tags: [client-work, platform]
 started: 2024-10-01
 links: [harris-terraform-platform]
 tech: [ci-cd, kubernetes, istio, rbac]

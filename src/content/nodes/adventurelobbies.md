@@ -3,8 +3,8 @@ title: AdventureLobbies
 tagline: Free Minecraft adventure-map hosting that served over a million sessions while I was in high school.
 scale: 5
 status: retired
-domain: apps
-tags: [infra]
+domain: products
+tags: [platform]
 started: 2012-01-01
 ended: 2014-07-01
 links: [gtotechnology, joinlobbies]

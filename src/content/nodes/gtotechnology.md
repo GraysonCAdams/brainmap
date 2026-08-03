@@ -4,7 +4,7 @@ tagline: A tech-tutorial channel started at twelve; 1.24M lifetime views.
 scale: 3
 status: retired
 domain: media
-tags: [home-automation]
+tags: [home]
 started: 2007-03-01
 ended: 2021-06-01
 links: [graysonadams-dot-com, adventurelobbies]

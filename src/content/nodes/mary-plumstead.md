@@ -3,7 +3,7 @@ title: Mary Plumstead
 tagline: The earliest engagement with a signed contract behind it.
 scale: 1
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 detail: parent
 started: 2016-01-01

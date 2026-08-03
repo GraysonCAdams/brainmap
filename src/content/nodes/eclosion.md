@@ -3,8 +3,8 @@ title: Eclosion
 tagline: Open-source budgeting tools built on top of a commercial finance app.
 scale: 3
 status: building
-domain: utilities
-tags: [apps]
+domain: products
+tags: [products]
 started: 2026-01-02
 links: [ynab-automation]
 tech: [typescript, python, self-hosted]

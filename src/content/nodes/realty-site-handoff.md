@@ -3,7 +3,7 @@ title: The Handoff Document
 tagline: A confidential runbook written so a client could survive me disappearing.
 scale: 2
 status: retired
-domain: apps
+domain: client-work
 parent: freelance-web
 started: 2018-06-13
 ended: 2018-07-21

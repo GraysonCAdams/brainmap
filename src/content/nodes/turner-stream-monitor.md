@@ -5,7 +5,7 @@ scale: 3
 org: Turner Broadcasting
 status: retired
 domain: media
-tags: [infra, apps]
+tags: [platform, products]
 started: 2017-05-01
 ended: 2017-08-01
 links: [turner-service-desk, warnermedia-eks-migration]
