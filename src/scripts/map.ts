@@ -34,6 +34,7 @@ interface GraphNode extends SimulationNodeDatum {
   tags?: string[];
   visibility: 'public' | 'teaser';
   parent?: string | null;
+  detail?: 'own' | 'parent';
   started?: string;
   ended?: string | null;
   org?: string | null;
@@ -910,7 +911,11 @@ async function init(root: HTMLElement) {
       travelTo(Date.parse(n.started) + behind * 0.4);
       return;
     }
-    if (n.visibility === 'public') openNode(n.id, true);
+    if (n.visibility !== 'public') return;
+    // A node can be its own dot without being its own essay. Deferring nodes
+    // open the parent's write-up, because that is where their story is told.
+    const target = n.detail === 'parent' && n.parent ? n.parent : n.id;
+    openNode(target, true);
   });
   modal.querySelector('.node-close')?.addEventListener('click', () => closeNode(false));
   modal.addEventListener('click', (ev) => {

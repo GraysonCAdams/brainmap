@@ -87,6 +87,20 @@ const nodes = defineCollection({
      * to a top-level node, not that the schema should grow.
      */
     parent: z.string().optional(),
+    /**
+     * Where this node's detail view lives.
+     *
+     * 'own' (default) gets a static page at /idea/<slug>.
+     * 'parent' gets NO page: the dot is real and named on the map, but
+     * clicking it opens the parent's card instead.
+     *
+     * This exists for the case where a set of things is worth SEEING as
+     * twenty distinct dots and worth READING as one essay. Twenty client
+     * websites each deserve their place on the map, and not one of them
+     * deserves a page saying "built a WordPress site for a realtor".
+     * Requires `parent`, since without one there is nothing to defer to.
+     */
+    detail: z.enum(['own', 'parent']).default('own'),
     visibility: z.enum(['public', 'teaser']).default('public'),
     /** tech keywords for filtering/search */
     tech: z.array(z.string()).default([]),

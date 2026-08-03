@@ -70,6 +70,13 @@ export const GET: APIRoute = async () => {
       );
     }
   }
+  // A node that defers its detail view must have somewhere to defer TO,
+  // otherwise it is a dot that cannot be opened at all.
+  for (const n of all) {
+    if (n.data.detail === 'parent' && !n.data.parent) {
+      badParents.push(`${n.id}: detail "parent" requires a parent`);
+    }
+  }
   if (badParents.length > 0) {
     throw new Error(`graph.json: invalid parent references:\n  ${badParents.join('\n  ')}`);
   }
@@ -84,6 +91,7 @@ export const GET: APIRoute = async () => {
       tags: n.data.tags,
       visibility: n.data.visibility,
       parent: n.data.parent ?? null,
+      detail: n.data.detail,
     };
     if (n.data.visibility === 'teaser') return base;
     return {
