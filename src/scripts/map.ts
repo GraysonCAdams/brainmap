@@ -923,6 +923,17 @@ async function init(root: HTMLElement) {
     frame.src = 'about:blank';
     if (!fromHistory && history.state?.node) history.back();
   };
+  // The embedded page hands its internal links back rather than following
+  // them, so the modal's path readout and the browser's history keep
+  // describing what is actually on screen. Navigating a node from inside a
+  // node is the common case now that satellites link to their parents.
+  addEventListener('message', (ev) => {
+    if (ev.origin !== location.origin) return;
+    const d = ev.data as { brainmap?: string; id?: string } | null;
+    if (!d || d.brainmap !== 'open' || typeof d.id !== 'string') return;
+    if (!data.nodes.some((n) => n.id === d.id)) return;
+    openNode(d.id, true);
+  });
   canvas.addEventListener('click', (ev) => {
     const r = canvas.getBoundingClientRect();
     const n = pick(ev.clientX - r.left, ev.clientY - r.top);

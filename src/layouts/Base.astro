@@ -24,12 +24,44 @@ const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.name} · ${SITE.
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <script is:inline>
+      // Embed mode: the map's node modal iframes pages and the page hides its
+      // own chrome (CSS keys off this attribute).
+      //
+      // Being framed is the real condition, so test for it directly. Keying
+      // only off ?embed=1 worked for the page the map opens and broke on the
+      // very next click: a link inside the frame navigates to a plain URL, the
+      // flag is lost, and the site header renders inside the modal window.
+      //
+      // In <head> so the attribute exists before body paints, otherwise the
+      // chrome flashes once on every embedded navigation.
+      var framed = false;
+      try {
+        framed = window.self !== window.top;
+      } catch (e) {
+        framed = true; // cross-origin access throwing means we are framed
+      }
+      if (framed || location.search.includes('embed=1'))
+        document.documentElement.dataset.embed = '1';
+    </script>
   </head>
   <body>
     <script is:inline>
-      // Embed mode: the map's node modal iframes pages with ?embed=1 and the
-      // page hides its own chrome (CSS keys off this attribute).
-      if (location.search.includes('embed=1')) document.documentElement.dataset.embed = '1';
+      // Inside the frame, internal navigation belongs to the MAP, not to the
+      // iframe. Letting the frame navigate itself leaves the outer address bar
+      // and history pointing at whichever node was opened first, so the URL
+      // silently stops describing what is on screen. Hand the click to the
+      // parent instead and let it drive.
+      if (document.documentElement.dataset.embed === '1' && window.parent !== window) {
+        document.addEventListener('click', function (ev) {
+          var a = ev.target && ev.target.closest && ev.target.closest('a[href^="/idea/"]');
+          if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || a.target === '_blank') return;
+          var m = a.getAttribute('href').match(/^\/idea\/([^/?#]+)/);
+          if (!m) return;
+          ev.preventDefault();
+          parent.postMessage({ brainmap: 'open', id: m[1] }, location.origin);
+        });
+      }
     </script>
     <slot />
   </body>
