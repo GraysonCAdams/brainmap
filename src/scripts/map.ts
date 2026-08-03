@@ -444,8 +444,18 @@ async function init(root: HTMLElement) {
   // window only starts mattering in phase 4, when the range selector appears
   // and visibly narrows to it.
   let introAccumulate = false;
+  // Pre-run state: the script has not executed, so the map holds nothing.
+  //
+  // This used to be faked by parking `focus` a year before the first node, but
+  // that put a real year on the watermark during which, by construction,
+  // nothing could ever happen. The clock appeared to be running over a dead
+  // year. Emptiness and the displayed year are different facts and now have
+  // different variables, so the counter can open honestly on the first year
+  // that has something in it.
+  let introArmed = false;
   const relevance = (n: GraphNode): number => {
     const [start, end] = spanOf(n);
+    if (introArmed) return 0;
     if (introAccumulate) return start <= focus ? 1 : 0;
     const wStart = focus - behind;
     const wEnd = focus + ahead;
@@ -588,7 +598,9 @@ async function init(root: HTMLElement) {
     sweepActive = false;
     cancelAnimationFrame(sweepRaf);
     // Bail out of every intro-only mode; leaving accumulate on would pin all
-    // 26 years of dots on screen permanently.
+    // 26 years of dots on screen permanently, and leaving the map armed would
+    // leave a visitor who skips the intro staring at empty ground.
+    introArmed = false;
     introAccumulate = false;
     introCam = false;
     behind = DEFAULT_BEHIND;
@@ -610,9 +622,10 @@ async function init(root: HTMLElement) {
   };
 
   if (!reducedMotion && !location.hash) {
-    // Open on an EMPTY map. Nothing has been loaded yet, so the canvas should
-    // show nothing until the command has actually run.
-    focus = T0 - YEAR;
+    // Open on an EMPTY map, but with the clock already reading the year the
+    // story actually starts. Nothing renders until the command has run.
+    introArmed = true;
+    focus = T0;
     renderTimeline();
     sweepActive = true;
 
@@ -737,6 +750,9 @@ async function init(root: HTMLElement) {
     whenBegun(() =>
       typeCommand(() => setTimeout(() => {
       if (!sweepActive) return;
+      // The script has run. The first year is the first event, and it is on
+      // screen from the opening frame rather than being counted up to.
+      introArmed = false;
       const t0ms = performance.now();
       const step = (nowMs: number) => {
         if (!sweepActive) return;
