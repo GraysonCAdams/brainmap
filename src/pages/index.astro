@@ -270,7 +270,13 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     background: var(--ground);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    box-shadow: 0 18px 48px rgb(0 0 0 / 0.55);
+    /* Layered rather than one big blur: a single 48px shadow reads as a
+       uniform smudge, three stacked falloffs read as a surface lifted off
+       the map. */
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.28),
+      0 8px 20px rgb(0 0 0 / 0.34),
+      0 24px 56px rgb(0 0 0 / 0.44);
     overflow: hidden;
   }
   /* title bar owns the close button, clear of the iframe's scrollbar */
@@ -278,8 +284,8 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 2.1rem;
-    padding: 0 var(--space-2) 0 var(--space-3);
+    height: 2.5rem;
+    padding: 0 0 0 var(--space-3);
     border-bottom: 1px solid var(--line);
     background: var(--surface);
   }
@@ -287,22 +293,39 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     font-size: var(--text-xs);
     color: var(--ink-faint);
   }
+  /* Stretches to the full height of the bar rather than sitting inside it as
+     a 22px chip. This is the only visible way out of the modal, and it cannot
+     be extended with a pseudo-element the way the other small controls are:
+     .node-shell clips overflow, and any downward extension would sit over the
+     iframe and swallow clicks meant for the page inside it. Growing the bar to
+     40px and filling it is the one option that leaves a real target. */
   .node-close {
     font: inherit;
     font-size: var(--text-xs);
     color: var(--ink-faint);
     background: none;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 1px 7px;
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-4);
     cursor: pointer;
+    transition-property: scale, color, background-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
   .node-close:hover {
     color: var(--ink);
+    background: var(--surface-raised);
+  }
+  .node-close:active {
+    scale: 0.96;
   }
   #node-frame {
     width: 100%;
-    height: calc(100% - 2.1rem);
+    height: calc(100% - 2.5rem);
     border: 0;
     background: var(--ground);
   }
@@ -313,8 +336,19 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   .stack-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1);
+    /* 5px, not 4px: the chips grew taller for the sake of a usable target
+       and the rows would otherwise sit almost flush. */
+    gap: 5px;
   }
+  /* Padded up from 1px/6px, which rendered a 21px-tall target. These stay
+     well short of a full 40px on purpose. They wrap over eleven rows in a
+     13rem panel, so every pixel of chip height costs eleven pixels of panel,
+     and the panel has something below it that matters more: the status
+     legend that tells a first-time reader what a hollow dot versus a solid
+     one means. Growing these to 40px pushed that legend off the bottom of
+     the viewport, which is a worse outcome than a small filter chip. The
+     full-width domain rows above are the large-target route to the same
+     filtering. */
   .tchip {
     font: inherit;
     font-size: 0.68rem;
@@ -322,8 +356,14 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     background: none;
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 1px 6px;
+    padding: 3px 8px;
     cursor: pointer;
+    transition-property: scale, color, border-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .tchip:active {
+    scale: 0.96;
   }
   .tchip .dcount {
     margin-left: 4px;
@@ -359,7 +399,10 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: var(--space-6);
-    box-shadow: 0 18px 48px rgb(0 0 0 / 0.55);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.28),
+      0 8px 20px rgb(0 0 0 / 0.34),
+      0 24px 56px rgb(0 0 0 / 0.44);
   }
   .intro-cmd {
     font-size: var(--text-sm);
@@ -393,10 +436,20 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     border: none;
     border-radius: var(--radius-chip);
     padding: var(--space-2) var(--space-3);
+    min-height: 40px;
     cursor: pointer;
+    transition-property: scale, background-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
+  /* Shifting the background rather than fading the whole button: opacity
+     took the dark label down against the plate along with it, so the one
+     element that should read most clearly got harder to read on hover. */
   .intro-actions button:hover {
-    opacity: 0.88;
+    background: color-mix(in srgb, var(--ink) 86%, var(--ground));
+  }
+  .intro-actions button:active {
+    scale: 0.96;
   }
   .intro-actions a {
     color: var(--ink-dim);
@@ -421,8 +474,17 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     background: var(--surface-raised);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    /* Only ever rendered below 640px, so this one gets the full touch target
+       rather than the tighter desktop floor the other controls settle for. */
+    min-height: 44px;
     cursor: pointer;
+    transition-property: scale, color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  #panel-toggle:active {
+    scale: 0.96;
   }
   .panel-body {
     background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
@@ -431,7 +493,12 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     padding: var(--space-3);
     display: grid;
     gap: 2px;
-    max-height: calc(100dvh - 13rem);
+    /* The panel occupies the left gutter and the timeline is centred well to
+       its right, so the two never share a column and the old 13rem bottom
+       reserve was larger than anything needed it to be. It cost the status
+       legend, which is how a first-time reader decodes every dot on the map
+       and therefore has to stay above the fold. */
+    max-height: calc(100dvh - 8rem);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -516,7 +583,11 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
       pointer-events: auto;
     }
   }
+  /* Was an 18px target. The visible glyph stays small so it does not compete
+     with the track beside it; ::after carries the real 40px hit area. The
+     8px flex gap to #tl-track leaves clearance, so the two never overlap. */
   #tl-reset {
+    position: relative;
     font: inherit;
     font-size: 0.85rem;
     line-height: 1;
@@ -524,10 +595,21 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     background: none;
     border: none;
     cursor: pointer;
-    padding: 2px 4px;
+    padding: 7px 9px;
+    transition-property: scale, color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  #tl-reset::after {
+    content: '';
+    position: absolute;
+    inset: -6px -5px;
   }
   #tl-reset:hover {
     color: var(--ink);
+  }
+  #tl-reset:active {
+    scale: 0.96;
   }
   #tl-track {
     position: relative;
@@ -711,6 +793,22 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     #domain-panel[data-open] .panel-body {
       display: grid;
       margin-top: var(--space-2);
+    }
+  }
+  /* Kept last on purpose. These selectors match the per-control :active rules
+     above at identical specificity, so the only thing deciding the cascade is
+     source order. Declared any earlier and the three controls defined below it
+     would quietly keep their press scale. */
+  @media (prefers-reduced-motion: reduce) {
+    /* The global rule in tokens.css only zeroes transition durations, which
+       would leave the press scale snapping instantly rather than not happening
+       at all. Remove the movement itself, not just its duration. */
+    .node-close:active,
+    .tchip:active,
+    .intro-actions button:active,
+    #panel-toggle:active,
+    #tl-reset:active {
+      scale: 1;
     }
   }
 </style>
