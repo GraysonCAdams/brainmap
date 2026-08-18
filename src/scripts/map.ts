@@ -1308,8 +1308,19 @@ async function init(root: HTMLElement) {
         const shown = wanted ? n.title.slice(0, Math.ceil(st.typed)) : n.title;
         const label = typing ? `${shown}_` : shown;
         // sqrt(sv): the label brightens ahead of the still-growing newborn
-        // dot so the type-in is legible from its first character
-        const la = (visible ? baseAlpha * Math.sqrt(sv) : 0.07) * zoomAlpha * st.alpha;
+        // dot so the type-in is legible from its first character.
+        //
+        // baseAlpha is deliberately not a factor. It carries the status
+        // dimming (retired sits at 0.38) and the building pulse, and both of
+        // those belong to the dot rather than to its name. A dot at 38%
+        // opacity still reads as a dot; the same 38% took a label from 7.9:1
+        // contrast against the ground down to 2.2:1, which is not a dimmer
+        // label but an unreadable one, and most of the map is retired. Status
+        // already has a treatment of its own (hollow, solid, dimmed, pulsing),
+        // so spending the label's legibility to encode it a second time buys
+        // nothing. Era and zoom still fade the label, because those decide
+        // whether it belongs on screen at all.
+        const la = (visible ? Math.sqrt(sv) : 0.07) * zoomAlpha * st.alpha;
         const lx = x;
         const ly = y + r + 14 / transform.k;
         ctx.font = `${11 / transform.k}px ${FONT_DATA}`;
@@ -1320,8 +1331,12 @@ async function init(root: HTMLElement) {
         // and read as a strikethrough. Knocking the ground out from under the
         // glyphs is the fix; drawing the label opaque instead would flatten
         // the depth cue that dims distant eras.
-        // Kept more opaque than the text so it still clears at low label alpha.
-        ctx.globalAlpha = Math.min(1, la * 2.2);
+        // Kept more opaque than the text, and ramped steeply, so that it has
+        // already saturated by the time the label is faint enough to need it.
+        // Scaling the halo in step with the label was self-defeating: the
+        // protection thinned out at exactly the alpha where the edges began
+        // showing through the glyphs.
+        ctx.globalAlpha = Math.min(1, la * 3);
         ctx.strokeStyle = GROUND;
         ctx.lineWidth = 4 / transform.k;
         ctx.lineJoin = 'round';
