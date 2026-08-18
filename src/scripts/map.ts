@@ -95,8 +95,61 @@ async function init(root: HTMLElement) {
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   };
+  // The domain panel and the timeline are opaque overlays sitting on top of the
+  // canvas, so the area actually free to hold dots is smaller than the canvas
+  // is. Every camera decision below frames against this rect rather than the
+  // full viewport. Centering on the viewport pushed whichever cluster happened
+  // to land on the left edge underneath the panel, where it could not be read
+  // or clicked, and no amount of zooming out recovered it because the panel
+  // moved with the viewport rather than with the world.
+  //
+  // Measured from the live elements instead of their CSS width, because the
+  // panel collapses to a single button below the mobile breakpoint and its
+  // height depends on how many domains and tech chips the content produced.
+  let viewLeft = 0;
+  let viewWidth = 0;
+  let viewHeight = 0;
+  const measureView = () => {
+    const gap = 24;
+    const rect = root.getBoundingClientRect();
+    let left = 0;
+    let bottom = height;
+    const panel = document.getElementById('domain-panel');
+    if (panel) {
+      const r = panel.getBoundingClientRect();
+      // Below the mobile breakpoint the panel keeps its 13rem box while its
+      // body is display:none, so only the toggle button paints. Measuring
+      // width alone there reserves a column that is not on screen and squashes
+      // the map into the right half of a phone. A collapsed panel occludes the
+      // top-left corner rather than a column, which the camera can ignore.
+      if (r.width > 0 && r.height > height * 0.35) left = Math.max(left, r.right - rect.left + gap);
+    }
+    const tl = document.getElementById('timeline');
+    if (tl) {
+      const r = tl.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) bottom = Math.min(bottom, r.top - rect.top - gap);
+    }
+    // Clamped so the chrome can never claim so much that the map is squeezed
+    // into a sliver. Past roughly half the viewport the overlay has become the
+    // layout, and framing the remainder is worse than simply ignoring it.
+    viewLeft = Math.min(left, width * 0.45);
+    viewWidth = Math.max(1, width - viewLeft);
+    viewHeight = Math.max(1, Math.min(bottom, height));
+  };
+  const viewCX = () => viewLeft + viewWidth / 2;
+  const viewCY = () => viewHeight / 2;
+
   resize();
-  new ResizeObserver(resize).observe(root);
+  measureView();
+  new ResizeObserver(() => {
+    resize();
+    measureView();
+  }).observe(root);
+  // The panel changes size without the viewport changing, when the mobile
+  // toggle opens it or a filter reflows the chip rows, so it needs watching
+  // on its own.
+  const panelEl = document.getElementById('domain-panel');
+  if (panelEl) new ResizeObserver(measureView).observe(panelEl);
 
   // Domain clusters: centroids on an ellipse, assigned in palette order.
   const domains = [...new Set(data.nodes.map((n) => n.domain))];
@@ -277,7 +330,7 @@ async function init(root: HTMLElement) {
   sim.on('tick.satellites', placeSatellites);
   placeSatellites();
 
-  let transform: ZoomTransform = zoomIdentity.translate(width / 2, height / 2);
+  let transform: ZoomTransform = zoomIdentity.translate(viewCX(), viewCY());
   // Panning is bounded to the world the layout actually occupies plus a margin.
   // Without this you can drag the entire graph off-screen and be left staring
   // at empty ground with no way back except the reset button, which is a dead
@@ -372,14 +425,14 @@ async function init(root: HTMLElement) {
     const padTop = 150;
     const w = Math.max(1, maxX - minX + pad * 2);
     const h = Math.max(1, maxY - minY + padTop + pad);
-    const k = Math.max(0.35, Math.min(1.6, Math.min(width / w, height / h)));
+    const k = Math.max(0.35, Math.min(1.6, Math.min(viewWidth / w, viewHeight / h)));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2 + (padTop - pad) / 2;
     // Critically damped chase: no overshoot, frame-rate independent.
     const s = 1 - Math.exp(-dt / 420);
     const nk = transform.k + (k - transform.k) * s;
-    const nx = transform.x + (width / 2 - cx * nk - transform.x) * s;
-    const ny = transform.y + (height / 2 - cy * nk - transform.y) * s;
+    const nx = transform.x + (viewCX() - cx * nk - transform.x) * s;
+    const ny = transform.y + (viewCY() - cy * nk - transform.y) * s;
     transform = constrained(zoomIdentity.translate(nx, ny).scale(nk));
     sel.call(zoomer.transform, transform);
   };
@@ -971,7 +1024,7 @@ async function init(root: HTMLElement) {
       if (n) {
         sel.call(
           zoomer.transform,
-          zoomIdentity.translate(width / 2, height / 2).scale(1.4).translate(-(n.x ?? 0), -(n.y ?? 0)),
+          zoomIdentity.translate(viewCX(), viewCY()).scale(1.4).translate(-(n.x ?? 0), -(n.y ?? 0)),
         );
       }
     });
@@ -1015,7 +1068,7 @@ async function init(root: HTMLElement) {
 
     // The year, dead center, everything floating over it. This IS the time
     // readout; it counts up during the intro sweep and tracks the scrubber.
-    ctx.font = `600 ${Math.min(width, height) * 0.3}px ${FONT_DATA}`;
+    ctx.font = `600 ${Math.min(viewWidth, viewHeight) * 0.3}px ${FONT_DATA}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = INK;
@@ -1024,7 +1077,7 @@ async function init(root: HTMLElement) {
     const wmTarget = hovered ? 0.018 : 0.05;
     watermark += (wmTarget - watermark) * (1 - Math.exp(-dt / 180));
     ctx.globalAlpha = watermark;
-    ctx.fillText(String(new Date(focus).getUTCFullYear()), width / 2, height / 2);
+    ctx.fillText(String(new Date(focus).getUTCFullYear()), viewCX(), viewCY());
     ctx.globalAlpha = 1;
     ctx.textBaseline = 'alphabetic';
 
