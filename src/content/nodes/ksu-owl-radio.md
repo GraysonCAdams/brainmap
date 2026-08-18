@@ -7,7 +7,8 @@ status: retired
 domain: media
 tags: [platform]
 started: 2015-01-01
-ended: 2016-05-01
+ended: 2016-08-01 # Bracketed by the Student Media staff page: listed as
+  # Website Manager on 2016-07-28, absent by 2016-08-31.
 links: [ksu-student-media, halolobbies]
 tech: [icecast, php, javascript, lastfm-api, ustream]
 ---

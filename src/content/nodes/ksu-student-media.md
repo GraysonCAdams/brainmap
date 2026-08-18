@@ -7,7 +7,8 @@ status: retired
 domain: tools
 tags: [client-work, media]
 started: 2014-08-01
-ended: 2016-05-01
+ended: 2016-08-01 # Bracketed by the Student Media staff page: listed as
+  # Website Manager on 2016-07-28, absent by 2016-08-31.
 links: [ksu-owl-radio, freelance-web]
 tech: [wordpress, php, css, automation]
 ---
