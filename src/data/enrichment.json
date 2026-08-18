@@ -3,27 +3,32 @@
     "repo": "312-dev/arena-mcp",
     "missing": false,
     "pushedAt": "2026-07-21T18:32:07Z",
-    "freshness": 0.97,
+    "freshness": 0.879,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T22:19:13.659Z"
+    "checkedAt": "2026-08-18T18:10:56.029Z"
   },
   "brainmap": {
     "repo": "GraysonCAdams/brainmap",
     "missing": false,
     "pushedAt": "2026-08-02T17:57:22Z",
-    "freshness": 1,
+    "freshness": 0.948,
     "language": "TypeScript",
     "stars": 0,
-    "checkedAt": "2026-08-02T22:19:13.689Z"
+    "checkedAt": "2026-08-18T18:10:56.180Z"
   },
   "ente-jellyfin": {
     "repo": "GraysonCAdams/ente-jellyfin",
     "missing": false,
     "pushedAt": "2026-07-14T03:58:18Z",
-    "freshness": 0.926,
+    "freshness": 0.835,
     "language": "Go",
     "stars": 0,
-    "checkedAt": "2026-08-02T22:19:13.720Z"
+    "checkedAt": "2026-08-18T18:10:56.319Z"
+  },
+  "macmini-music-stack": {
+    "repo": "GraysonCAdams/macmini-music-stack",
+    "missing": true,
+    "checkedAt": "2026-08-18T18:10:56.426Z"
   }
 }
