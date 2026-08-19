@@ -67,10 +67,31 @@ const numbersVerified = (text: string, corpus: string): string[] => {
   return bad;
 };
 
+/**
+ * Longest headline that fits the template's single centered 9.6pt bold line.
+ * The canonical headline is 103 characters; centered() does not wrap, so a
+ * model headline past this is dropped in favor of the canonical one rather
+ * than being drawn off both edges of the page.
+ */
+const HEADLINE_MAX_CHARS = 110;
+
 export function vetGeneration(gen: GeneratedContent, corpus: string): VetReport {
   let numbersChecked = 0;
   const removedClaims: string[] = [];
   const droppedRoles: string[] = [];
+
+  // The headline is the one piece of tailored text outside the bullets, so it
+  // gets the same number check; a failed or oversized one falls back to the
+  // canonical headline by simply not being carried forward.
+  let headline = typeof gen.headline === 'string' ? gen.headline.trim() : undefined;
+  if (headline) {
+    const bad = numbersVerified(headline, corpus);
+    numbersChecked += (headline.match(NUM_RE) ?? []).length;
+    if (bad.length > 0 || headline.length > HEADLINE_MAX_CHARS || headline.length === 0) {
+      if (bad.length > 0) removedClaims.push(headline);
+      headline = undefined;
+    }
+  }
 
   const eligible = eligibleExperience();
   const originals = new Map(eligible.map((e) => [e.id, e.bullets]));
@@ -115,12 +136,14 @@ export function vetGeneration(gen: GeneratedContent, corpus: string): VetReport 
         if (bad.length > 0) removedClaims.push(b);
         else kept.push(b);
       }
-      // A printed job never appears empty: fall back to its first canonical bullet.
-      return { id: job.id, bullets: kept.length > 0 ? kept : [source[0]] };
+      // A printed job with canonical bullets never appears empty: fall back to
+      // its first one. A role whose canonical record is bullet-less (VMware)
+      // legitimately prints as a title line alone.
+      return { id: job.id, bullets: kept.length > 0 ? kept : source.slice(0, 1) };
     });
 
   return {
-    gen: { skillsets: gen.skillsets.slice(0, 5), experienceBullets },
+    gen: { headline, skillsets: gen.skillsets.slice(0, 5), experienceBullets },
     numbersChecked,
     removedClaims,
     droppedRoles: droppedRoles.filter((id) => !selected.has(id)),
@@ -146,6 +169,7 @@ export function trimForFit(gen: GeneratedContent): boolean {
 
 export function cloneGen(gen: GeneratedContent): GeneratedContent {
   return {
+    headline: gen.headline,
     skillsets: gen.skillsets.map((s) => ({ ...s })),
     experienceBullets: gen.experienceBullets.map((e) => ({ id: e.id, bullets: [...e.bullets] })),
   };
@@ -217,7 +241,8 @@ export function growForFill(gen: GeneratedContent, skip: Set<string> = new Set()
   for (const job of eligible) {
     if (present.has(job.id) || skip.has(`role:${job.id}`)) continue;
     const shortest = [...job.bullets].sort((a, b) => a.length - b.length)[0];
-    gen.experienceBullets.push({ id: job.id, bullets: [shortest] });
+    // A bullet-less role (VMware) comes back as its title line alone.
+    gen.experienceBullets.push({ id: job.id, bullets: shortest === undefined ? [] : [shortest] });
     return `role:${job.id}`;
   }
 

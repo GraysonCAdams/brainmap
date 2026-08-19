@@ -1,127 +1,136 @@
 {
-  "_comment": "Canonical resume facts from Grayson Adams Resume 2025.pdf. The generator may re-weight bullets, rephrase them, and drop whole roles that are not relevant to the reader, but it NEVER invents employers, dates, titles, or numbers. Phone number deliberately excluded from the public generator. Set internship:true on any role that was an internship or a student job: those are filtered out in code and never reach the page, regardless of what the model selects. A `titles` array records a promotion within one employer, newest first; the bullets stay attached to the whole tenure because which title a given accomplishment fell under is not recorded anywhere. `role` and `dates` remain the whole-tenure summary and are what prints when `titles` is absent. AT&T is modelled the other way, as two entries with their own bullets, because his own resume splits it that way.",
-  "name": "Grayson C. Adams",
-  "contactLine": "Chicago, IL • grayson@graysonadams.com • linkedin.com/in/graysonchaseadams",
-  "skillsets": [
-    {
-      "label": "Software Development",
-      "value": "Python, Javascript (React, Node, jQuery), HTML5, CSS, Bash, PowerShell"
-    },
-    {
-      "label": "Systems Administration",
-      "value": "SQL (Postgres / MySQL), Terraform, Docker, Kubernetes, Ansible / Chef, Jenkins, ELK"
-    },
-    {
-      "label": "Cloud Infrastructure",
-      "value": "Enterprise Azure + Active Directory, AWS, Linux, Mac OS, Windows, ESXi, VirtualBox"
-    },
-    {
-      "label": "Networking",
-      "value": "Nginx/Apache, Firewalls, Load Balancing, Cloud/On-Prem Peering, DNS, TCP"
-    },
-    {
-      "label": "Certified",
-      "value": "Azure Fundamentals, VCP Digital Workspace, VCA Digital Business Transformation"
-    }
-  ],
-  "experience": [
-    {
-      "id": "harris",
-      "internship": false,
-      "company": "Harris Associates",
-      "role": "Lead Software Engineer (Platform/DevOps)",
-      "location": "Chicago, IL",
-      "dates": "Jan 2026 — Present",
-      "bullets": [
-        "Designed a scheduled-agent execution platform from scratch, pairing fetch-at-runtime code with pre-baked dependencies to close outbound package access at runtime and cut cold starts from roughly a minute to about five seconds",
-        "Designed and built the authorization layer and developer portal for an internal platform, including OAuth 2.0 scoped consent, per-tool scope enforcement, and a REST API surface",
-        "Designed a tiered taxonomy and registry-driven distribution system for a library of reusable AI tools and skills, and built the testing harness validating the shared connector platform's security controls",
-        "Founded and led a firm-wide community of practice for engineers adopting AI tools, defining its governance structure and a reporting line into the firm's AI governance process",
-        "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO"
-      ]
-    },
-    {
-      "id": "harris-senior",
-      "internship": false,
-      "company": "Harris Associates",
-      "role": "Senior DevOps Engineer",
-      "location": "Chicago, IL",
-      "dates": "Sep 2024 — Jan 2026",
-      "bullets": [
-        "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide",
-        "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments",
-        "Embedded Mend and Aqua security scanning into CI/CD to block insecure code and containers, while enforcing pod security policies, RBAC, and Istio-based network controls to maintain cluster integrity"
-      ]
-    },
-    {
-      "id": "att-principal",
-      "internship": false,
-      "company": "AT&T",
-      "role": "Principal Software Engineer",
-      "location": "Chicago, IL",
-      "dates": "Jun 2024 — Sep 2024",
-      "bullets": [
-        "Lead team of software engineers across different initiatives: automated outage intake, on-call alerting system, full-stack dashboard to visualize application metrics; drastically improving outage resolution times",
-        "Deployed Kubernetes / AKS clusters using Terraform for SRE tooling (Python/Node/Go), implement ArgoCD GitOps, custom Helm charts, and Kustomize. Utilizing Prometheus and Grafana for observability"
-      ]
-    },
-    {
-      "id": "att-senior",
-      "internship": false,
-      "company": "AT&T",
-      "role": "Senior DevOps Engineer",
-      "location": "Atlanta, GA",
-      "dates": "Jul 2021 — Jun 2024",
-      "bullets": [
-        "Executed high-visibility, million-dollar migrations from on-prem to Azure, designing technical architecture, understanding requirements, budget constraints, and performed software troubleshooting",
-        "Re-wrote and containerized legacy codebases (e.g. Java, ColdFusion, Python) with modern industry languages while either maintaining or redesigning UX per requirements"
-      ]
-    },
-    {
-      "id": "warnermedia",
-      "internship": false,
-      "company": "WarnerMedia",
-      "role": "SRE Engineer II (Platform Engineering)",
-      "location": "Atlanta, GA",
-      "dates": "Jun 2019 — Jul 2021",
-      "bullets": [
-        "Assisted in migrating the entire production workload for live streaming platforms from RKE to AWS EKS",
-        "Transformed manual 100+ AWS resources (e.g. RDS, EC2, ELB) to IaC using Terraform / CloudFormation",
-        "Dockerized/migrated on-prem apps to multiple Kubernetes clusters with autoscaling node pools",
-        "Engineered a Python telemetry application, transmitting 120+ million vital metrics to Datadog, Zabbix, ELK",
-        "Conducted cloud environment audits, enhancing RBAC for AWS resources, integrating AWS Secrets Manager with applications, fortifying IT security and data integrity"
-      ]
-    },
-    {
-      "id": "vmware",
-      "internship": false,
-      "company": "VMware",
-      "role": "MDM Consultant",
-      "location": "Atlanta, GA",
-      "dates": "Jul 2018 — Jun 2019",
-      "bullets": [
-        "Oversaw Workspace ONE MDM implementations and migrations (e.g. from JAMF) for federal and corporate customers, hosting and scheduling calls while enacting trained verbal communication skills"
-      ]
-    },
-    {
-      "id": "fastalerts",
-      "internship": false,
-      "company": "Fast Alerts Ltd. Co",
-      "role": "Co-Founder",
-      "location": "Atlanta, GA",
-      "dates": "Aug 2021 — May 2023",
-      "bullets": [
-        "Launched startup used by 200,000 people addressing the challenges posed by the global computer chip shortage, focusing on alerting consumers to gaming hardware restocks",
-        "Engineered a cloud-hosted Kubernetes cluster backbone for all application infrastructure",
-        "Scanned 500 retailer URLs concurrently using Celery multi-threading, caching data through Redis and SQL",
-        "Built full-stack service with Node.js / React / Python to distribute low-latency restock notifications to thousands of users",
-        "Reinforced API resilience through load balancing and replica sets, application firewalls, and caching policies"
-      ]
-    }
-  ],
-  "education": {
-    "school": "Kennesaw State University",
-    "degree": "BBA, Information Systems",
-    "dates": "Aug 2014 — Jul 2018"
+ "_comment": "Canonical resume facts. Originally transcribed from Grayson Adams Resume 2025.pdf; restructured 2026-08-19: headline added, skills taxonomy rebuilt around platform/identity/AI-agent work, Fast Alerts moved into date order before WarnerMedia, VMware kept as a title line with no bullets. The generator may re-weight bullets, rephrase them, and drop whole roles that are not relevant to the reader, but it NEVER invents employers, dates, titles, or numbers. Phone number deliberately excluded from the public generator.",
+ "name": "Grayson C. Adams",
+ "contactLine": "Chicago, IL • grayson@graysonadams.com • graysonadams.com • github.com/GraysonCAdams • linkedin.com/in/graysonchaseadams",
+ "skillsets": [
+  {
+   "label": "Platform & Infrastructure",
+   "value": "Kubernetes (AKS / EKS), Terraform, Docker, Helm, ArgoCD, Istio, Azure, AWS, Cloudflare"
+  },
+  {
+   "label": "Identity & Security",
+   "value": "OAuth 2.0 / OIDC, RBAC, secrets isolation, sandboxing, Mend / Aqua, pod security policy"
+  },
+  {
+   "label": "AI / Agent Infrastructure",
+   "value": "Agent execution platforms, MCP servers / gateways, tool registries, Claude & OpenAI APIs"
+  },
+  {
+   "label": "Languages",
+   "value": "Python, TypeScript / Node.js, Go, React, Bash, PowerShell, SQL (Postgres, MySQL)"
+  },
+  {
+   "label": "Delivery & Observability",
+   "value": "Azure Pipelines, Jenkins, GitOps, Prometheus / Grafana, Datadog, ELK"
   }
+ ],
+ "experience": [
+  {
+   "id": "harris",
+   "internship": false,
+   "company": "Harris Associates",
+   "role": "Lead Software Engineer (Platform/DevOps)",
+   "location": "Chicago, IL",
+   "dates": "Jan 2026 — Present",
+   "bullets": [
+    "Designed a scheduled-agent execution platform from scratch: fetch-at-runtime code over pre-baked dependencies closed outbound package access at runtime and cut cold starts from about a minute to five seconds",
+    "Built the authorization layer and developer portal for the firm’s internal AI platform: OAuth 2.0 scoped consent, per-tool scope enforcement, a REST API, and the registry that distributes its library of reusable AI tools",
+    "Open-sourced a credential-isolation broker that lets AI coding agents use secrets without ever seeing a value, and drove its adoption for engineering use inside the firm",
+    "Led an access-control audit of 200+ repositories and a security-hardening sweep of developer tooling, each turned into a formal remediation project; briefed senior security leadership on risk across five Kubernetes clusters",
+    "Founded and lead a firm-wide AI community of practice reporting into AI governance; primary technical stakeholder for the internal AI research platform with partners, directors and the CTO; direct a team of engineering interns"
+   ]
+  },
+  {
+   "id": "harris-senior",
+   "internship": false,
+   "company": "Harris Associates",
+   "role": "Senior DevOps Engineer",
+   "location": "Chicago, IL",
+   "dates": "Sep 2024 — Jan 2026",
+   "bullets": [
+    "Cut infrastructure deployment from 5 days to under 10 minutes with modular Terraform patterns adopted by 8+ production apps; partnered with quant leadership on automated Databricks deployment and testing, adopted firm-wide",
+    "Embedded Mend / Aqua security scanning into CI/CD and enforced pod security, RBAC and Istio network policy"
+   ]
+  },
+  {
+   "id": "att-principal",
+   "internship": false,
+   "company": "AT&T",
+   "role": "Principal Software Engineer",
+   "location": "Chicago, IL",
+   "dates": "Jun 2024 — Sep 2024",
+   "bullets": [
+    "Led a team of engineers delivering automated outage intake, on-call alerting and a full-stack metrics dashboard, shortening outage resolution; SME on root-cause calls",
+    "Deployed AKS clusters via Terraform for SRE tooling (Python / Node / Go) with ArgoCD GitOps, Helm, Prometheus / Grafana"
+   ]
+  },
+  {
+   "id": "att-senior",
+   "internship": false,
+   "company": "AT&T",
+   "role": "Senior DevOps Engineer",
+   "location": "Atlanta, GA",
+   "dates": "Jul 2021 — Jun 2024",
+   "bullets": [
+    "Executed high-visibility, million-dollar on-prem-to-Azure migrations, owning architecture, requirements and budget; rewrote and containerized legacy Java, ColdFusion and Python codebases; High Performer award (2x)"
+   ]
+  },
+  {
+   "id": "fastalerts",
+   "internship": false,
+   "company": "Fast Alerts Ltd. Co",
+   "role": "Co-Founder",
+   "location": "Atlanta, GA",
+   "dates": "Aug 2021 — May 2023",
+   "bullets": [
+    "Co-founded and launched a restock-alert product used by 200,000 people during the global chip shortage; built the full stack (Node.js / React / Python) on a Kubernetes backbone",
+    "Scanned 500 retailer URLs concurrently (Celery, Redis, SQL) for low-latency alerts; hardened the API with load balancing, replica sets, a WAF and caching policies"
+   ]
+  },
+  {
+   "id": "warnermedia",
+   "internship": false,
+   "company": "WarnerMedia",
+   "role": "SRE Engineer II (Platform Engineering)",
+   "location": "Atlanta, GA",
+   "dates": "Jun 2019 — Jul 2021",
+   "bullets": [
+    "Helped migrate the entire live-streaming production workload from RKE to AWS EKS; converted 100+ hand-built AWS resources to Terraform and CloudFormation",
+    "Engineered a Python telemetry pipeline shipping 120M+ metrics to Datadog, Zabbix and ELK; audited cloud environments, tightening RBAC and integrating AWS Secrets Manager"
+   ]
+  },
+  {
+   "id": "vmware",
+   "internship": false,
+   "company": "VMware",
+   "role": "MDM Consultant",
+   "location": "Atlanta, GA",
+   "dates": "Jul 2018 — Jun 2019",
+   "bullets": []
+  }
+ ],
+ "education": {
+  "school": "Kennesaw State University",
+  "degree": "BBA, Information Systems",
+  "dates": "Aug 2014 — Jul 2018"
+ },
+ "contactLinks": [
+  {
+   "text": "grayson@graysonadams.com",
+   "url": "mailto:grayson@graysonadams.com"
+  },
+  {
+   "text": "graysonadams.com",
+   "url": "https://graysonadams.com"
+  },
+  {
+   "text": "github.com/GraysonCAdams",
+   "url": "https://github.com/GraysonCAdams"
+  },
+  {
+   "text": "linkedin.com/in/graysonchaseadams",
+   "url": "https://linkedin.com/in/graysonchaseadams"
+  }
+ ],
+ "headline": "Lead Platform Engineer: AI-agent infrastructure, identity & authorization, Kubernetes / Terraform platforms"
 }

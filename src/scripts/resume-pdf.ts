@@ -1,21 +1,29 @@
 /**
- * Client-side PDF builder replicating the layout of "Grayson Adams Resume
- * 2025.pdf": US Letter, Helvetica family, centered bold name, bullet-separated
- * contact line, centered ALL-CAPS section headers between hairline rules,
- * two-column skillsets, company blocks with right-aligned italic dates,
- * hanging-indent bullets. The design is fixed; only text content varies.
+ * Client-side PDF builder in the layout of the 2025 source resume, revised
+ * 2026-08-19: US Letter, Helvetica family, centered bold name, bullet-separated
+ * contact line whose email/site/GitHub/LinkedIn segments are live hyperlinks
+ * (black, no underline: link annotations sit invisibly over the text), a
+ * one-line bold headline under the contact line, centered ALL-CAPS section
+ * headers between hairline rules, two-column skillsets, company blocks with
+ * right-aligned italic dates, hanging-indent bullets. The design is fixed;
+ * only text content varies.
  *
- * One page is a requirement, not an aspiration. The source document fits its
- * twenty bullets on a single sheet, so this template has to as well, and the
- * spacing constants below are set tighter than a first reading of the original
- * suggested in order to get there. Callers that feed in tailored content still
- * have to trim it (see trimForFit in resume-validate.ts); what is guaranteed
- * here is only that the canonical resume itself fits.
+ * One page is a requirement, not an aspiration. Callers that feed in tailored
+ * content still have to trim it (see trimForFit in resume-validate.ts); what
+ * is guaranteed here is only that the canonical resume itself fits, which
+ * `npm run resume:check` proves before any deploy.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFRef } from 'pdf-lib';
 import facts from '../data/resume-facts.json';
 
 export interface GeneratedContent {
+  /**
+   * One-line positioning statement printed bold under the contact line. The
+   * tailored path may rewrite it for the reader (vetGeneration drops one that
+   * fails the number check or cannot fit on one line); when absent, the
+   * canonical headline from resume-facts.json prints.
+   */
+  headline?: string;
   skillsets: { label: string; value: string }[];
   /**
    * The roles to print, in the order `facts.experience` declares them. A role
@@ -31,17 +39,16 @@ const MARGIN = 40;
 const WIDTH = PAGE_W - MARGIN * 2;
 const BLACK = rgb(0, 0, 0);
 
-// Vertical rhythm. These are not free parameters: the 2025 source resume was
-// 20 bullets across six roles, and at the original spacing it needed 751pt
-// inside a 692pt column, so it rendered as two pages. Every value below is tuned so
-// that document fits on one page with headroom, which is what `fitsOnePage`
-// asserts. Loosening any of them without re-running that check reintroduces a
-// two-page resume, and the overflow is silent because `ensure` just starts a
-// new page.
-const LINE_GAP = 1.8; // between wrapped lines within one bullet or row
-const ITEM_GAP = 1.6; // after a finished bullet or skillset row
-const JOB_GAP = 2; // after a job block
-const HEAD_GAP = 11.5; // rule-to-text and text-to-rule inside a section header
+// Vertical rhythm. These are not free parameters: they are tuned so the
+// canonical content (15 bullets across seven roles as of 2026-08-19, plus the
+// headline line) fills one page with a small bottom gap rather than either
+// spilling or stranding a third of the sheet blank. Loosening any of them
+// without re-running `npm run resume:check` risks a two-page resume, and the
+// overflow is silent because `ensure` just starts a new page.
+const LINE_GAP = 2.0; // between wrapped lines within one bullet or row
+const ITEM_GAP = 2.6; // after a finished bullet or skillset row
+const JOB_GAP = 6; // after a job block
+const HEAD_GAP = 12; // rule-to-text and text-to-rule inside a section header
 
 /** Identity content: the resume as advertised, straight from canonical facts. */
 /**
@@ -151,6 +158,39 @@ export async function buildResumePdf(
   centered(facts.name, bold, 14.5);
   y -= 15;
   centered(facts.contactLine, helv, 9.3);
+  // Hyperlinks: an invisible link annotation over each contact segment that
+  // declares a URL in facts.contactLinks. The text itself stays black with no
+  // underline; Border [0,0,0] suppresses the viewer's default link frame.
+  // Offsets are measured segment by segment along the centered line, so a
+  // contactLinks entry must match one bullet-separated segment exactly.
+  {
+    const size = 9.3;
+    const SEP = ' \u2022 ';
+    const urls = new Map(facts.contactLinks.map((l) => [l.text, l.url]));
+    const annots: PDFRef[] = [];
+    let x = (PAGE_W - helv.widthOfTextAtSize(facts.contactLine, size)) / 2;
+    for (const seg of facts.contactLine.split(SEP)) {
+      const w = helv.widthOfTextAtSize(seg, size);
+      const url = urls.get(seg);
+      if (url) {
+        annots.push(
+          doc.context.register(
+            doc.context.obj({
+              Type: 'Annot',
+              Subtype: 'Link',
+              Rect: [x, y - 2, x + w, y + size],
+              Border: [0, 0, 0],
+              A: { Type: 'Action', S: 'URI', URI: PDFString.of(url) },
+            }),
+          ),
+        );
+      }
+      x += w + helv.widthOfTextAtSize(SEP, size);
+    }
+    if (annots.length > 0) page.node.set(PDFName.of('Annots'), doc.context.obj(annots));
+  }
+  y -= 12;
+  centered(gen.headline ?? facts.headline, bold, 9.6);
   y -= 8;
 
   // ---- Skillsets
