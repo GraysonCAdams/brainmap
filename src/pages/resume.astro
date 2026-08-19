@@ -74,9 +74,9 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
         The current resume is the one I'm advertising today: no generation, no wait, no limit.
       </p>
 
-      {/* The marks are text ("[x] ", "[!] "), not icons, so a reader hears the
-          state along with the step. aria-live carries each change without the
-          reader having to go looking for the list. */}
+      {/* The marks are text ("[✓] ", "[!] ", "[…] "), not icons, so a reader
+          hears the state along with the step. aria-live carries each change
+          without the reader having to go looking for the list. */}
       <ol id="gen-steps" class="data" hidden aria-label="Generation progress" aria-live="polite">
         <li data-step="bot"><span class="mark"></span>anti-bot check</li>
         <li data-step="gen"><span class="mark"></span>selecting relevant roles and tailoring bullets</li>
@@ -86,6 +86,12 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
         <li data-step="fit"><span class="mark"></span>one-page fit</li>
         <li data-step="done"><span class="mark"></span>download</li>
       </ol>
+      {/* The auto-download can be blocked or dismissed, and the result exists
+          only in this tab. Handing it over again costs nothing and spends no
+          slot, so the button stays until the next generation replaces it. */}
+      <p class="regrab" hidden>
+        <button type="button" id="download-generated">[ download the tailored resume ]</button>
+      </p>
       <p class="status data" role="status" aria-live="polite"></p>
     </form>
   </main>
@@ -123,8 +129,11 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     if (!li) return;
     li.dataset.state = state;
     const mark = li.querySelector('.mark') as HTMLElement;
+    // A finished box gets the check whether the step passed clean or was
+    // adjusted; the note is what says an adjustment happened. Running is the
+    // ellipsis, which with the seconds counter reads as work in progress.
     mark.textContent =
-      state === 'ok' ? '[x] ' : state === 'fixed' ? '[~] ' : state === 'running' ? '[.] ' : state === 'fail' ? '[!] ' : '[ ] ';
+      state === 'ok' || state === 'fixed' ? '[✓] ' : state === 'running' ? '[…] ' : state === 'fail' ? '[!] ' : '[ ] ';
     if (note) {
       let n = li.querySelector<HTMLElement>('.note');
       if (!n) {
@@ -200,6 +209,16 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     URL.revokeObjectURL(a.href);
   };
 
+  // The finished result, held for the re-download button. One generation at a
+  // time: a new submit clears it, so the button can never hand over a file
+  // from a different request than the step list is describing.
+  const regrabWrap = form.querySelector('.regrab') as HTMLElement;
+  const regrabBtn = document.getElementById('download-generated') as HTMLButtonElement;
+  let lastBuilt: { bytes: Uint8Array; name: string } | null = null;
+  regrabBtn.addEventListener('click', () => {
+    if (lastBuilt) download(lastBuilt.bytes, lastBuilt.name);
+  });
+
   // ---------------------------------------------------------------------
   // Attaching the posting as a file
   // ---------------------------------------------------------------------
@@ -224,7 +243,7 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 
   const say = (state: 'busy' | 'ok' | 'error', text: string) => {
     attachState.dataset.state = state;
-    attachState.textContent = `${state === 'ok' ? '[x] ' : state === 'error' ? '[!] ' : '[.] '}${text}`;
+    attachState.textContent = `${state === 'ok' ? '[✓] ' : state === 'error' ? '[!] ' : '[…] '}${text}`;
     attachClear.hidden = state !== 'ok';
   };
 
@@ -346,8 +365,16 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     resetSteps();
+    lastBuilt = null;
+    regrabWrap.hidden = true;
     generating = true;
     status.textContent = LEAVING;
+    // On a phone the list sits below the fold once a description is pasted,
+    // and a generation that starts off-screen reads as a dead button.
+    steps.scrollIntoView({
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'center',
+    });
     const turnstileToken =
       form.querySelector<HTMLInputElement>('[name=cf-turnstile-response]')?.value ?? '';
     const interest = (form.elements.namedItem('interest') as HTMLTextAreaElement).value;
@@ -444,6 +471,8 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
       }
 
       download(built.bytes, 'Grayson Adams - Resume (tailored).pdf');
+      lastBuilt = { bytes: built.bytes, name: 'Grayson Adams - Resume (tailored).pdf' };
+      regrabWrap.hidden = false;
       setStep('done', 'ok');
       status.textContent =
         body.remainingToday !== undefined
@@ -452,6 +481,12 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     } catch {
       setStep('gen', 'fail');
       status.textContent = 'Something broke. Grab the current resume instead, or email me.';
+    } finally {
+      // However it ended, the generation is over: the seconds counter stops
+      // counting a call that has returned, and leaving the page no longer
+      // warns about losing work that is already downloaded or already lost.
+      stopTicker();
+      generating = false;
     }
   });
 </script>
@@ -554,6 +589,26 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
   }
   .actions .view:hover {
     color: var(--ink-dim);
+  }
+  /* Outline chrome, not the filled submit look: this is the second copy of a
+     download that already happened, not a new call to action. */
+  .regrab {
+    margin: var(--space-4) 0 0;
+  }
+  .regrab button {
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .regrab button:hover {
+    opacity: 0.88;
+    color: var(--ink);
   }
   .alt-hint {
     font-size: var(--text-xs);
