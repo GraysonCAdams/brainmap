@@ -3,37 +3,75 @@ const path = Astro.url.pathname;
 const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefined);
 ---
 
-<header class="data">
+<a class="skip-link" href="#main">skip to content</a>
+<header class:list={["data", { map: path === "/" }]}>
   <a class="wordmark" href="/"
     ><span class="user">gray</span><span class="at">@</span><span class="host">brainmap</span><span class="path">:~$</span><span
       class="cursor"
       aria-hidden="true"></span></a
   >
-  <!-- Terminal narration. Every line lives here, including the command and
-       its prompt, so the prompt scrolls away with its own command exactly as
-       it would in a shell. Decorative, so aria-hidden. -->
+  <!-- The map's intro types one command in here, prompt included, and leaves
+       it. It is the wordmark in issued form rather than a log: nothing is
+       appended, nothing scrolls, and the era narration the tour used to push
+       through this space now lives under the year watermark on the canvas.
+
+       aria-hidden because it is decoration that animates in character by
+       character; the wordmark link above already carries the same name as real
+       content. Empty on every other page, where .term:empty removes it. -->
   <div id="term" class="term" aria-hidden="true"></div>
-  <nav>
+  <nav aria-label="Main">
     <a href="/bio" aria-current={current('/bio')}>bio</a>
     <a href="/resume" aria-current={current('/resume')}>resume</a>
     <a href="/contact" aria-current={current('/contact')}>contact</a>
   </nav>
 </header>
 
+<script>
+  // The skip link points at #main, and Base.astro renders nothing but a slot,
+  // so the id belongs to whichever page supplied the <main>. Backfill it for
+  // any page that did not, rather than letting the link land nowhere.
+  //
+  // tabindex="-1" along with it: <main> is not focusable on its own, and a
+  // browser that does not implement the sequential-focus starting point moves
+  // the viewport and leaves focus back at the top of the page, which is the
+  // failure mode the skip link exists to prevent.
+  const main = document.querySelector('main');
+  if (main && !main.id) main.id = 'main';
+  if (main && !main.hasAttribute('tabindex')) main.tabIndex = -1;
+</script>
+
 <style>
+  /* Wraps because the wordmark cannot shrink: it is a fixed string with
+     white-space: nowrap, and at 320px it plus the three nav links come to
+     393px, which dragged every page on the site sideways. The nav drops to a
+     second line there rather than the page gaining a horizontal scrollbar. */
   header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-2) var(--space-4);
     padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--line);
     font-size: var(--text-sm);
   }
+  /* The wordmark is the home link on every page, so it gets the same 40px
+     target the nav links do. Extending rather than padding keeps the header
+     the height the density wants. */
   .wordmark {
+    position: relative;
     text-decoration: none;
     white-space: nowrap;
     align-self: center;
+  }
+  .wordmark::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    height: 40px;
   }
   .user {
     color: var(--prompt);
@@ -48,37 +86,52 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
   .wordmark .cursor {
     margin-left: 2px;
   }
-  /* While the terminal line is running, its own cursor is the live one. */
-  header.has-log .wordmark .cursor {
-    display: none;
+  /* The command line owns the caret while it types, and keeps the glyph slot
+     after. Gated with the wordmark below: under 720px there is no command line
+     to own a cursor, so the wordmark keeps its own. */
+  @media (min-width: 721px) {
+    header.has-log .wordmark .cursor {
+      display: none;
+    }
   }
-  /* Two-line window, bottom-anchored: appending a line pushes the older one
-     up and out, which is the scroll. Children are divs, not spans, so they
-     stack even if this rule never lands. */
+  /* One line, and only ever one: the command the map's intro types out, which
+     then stays typed. Nothing is appended to it and nothing scrolls, so this is
+     a plain block rather than the bottom-anchored flex column it was when era
+     sentences cycled through here. */
   .term {
     flex: 1;
     min-width: 0;
-    align-self: flex-start;
-    /* Optical: pull level with the nav's cap height rather than its box. */
-    margin-top: -0.15em;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    align-self: center;
+    display: block;
     overflow: hidden;
     color: var(--ink-faint);
   }
   .term:empty {
     display: none;
   }
-  /* Reserved only while narrating, so other pages keep a one-line header and
-     the map's header does not resize mid-tour. */
+  /* The map types its command a beat after load, so the line is reserved from
+     the first paint there rather than at .has-log. Sizing it only once the
+     class landed is what made the header grow at t=64ms, pushing main down for
+     0.077 of layout shift, which was the entire page's CLS. One line matches
+     the wordmark it replaces, so the reservation now costs no height at all.
+     Other pages never narrate and .term:empty removes it there. */
+  header.map .term:empty {
+    display: block;
+  }
+  header.map .term,
   header.has-log .term {
-    height: 2.8em;
+    height: 1.4em;
   }
   /* The wordmark IS the prompt. Once the command has been issued it belongs to
-     that command's line and scrolls away with it, so the static one goes. */
-  header.has-log .wordmark {
-    display: none;
+     that command's line, so the static one steps aside for good.
+
+     Width-gated because the line itself is hidden below 720px: unconditionally,
+     this left the header a bare nav row on a phone, with nothing at all where
+     the wordmark had been. */
+  @media (min-width: 721px) {
+    header.has-log .wordmark {
+      display: none;
+    }
   }
   .term :global(.log-line) {
     display: block;
@@ -90,10 +143,6 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
     transition:
       opacity 280ms cubic-bezier(0.2, 0, 0, 1),
       translate 280ms cubic-bezier(0.2, 0, 0, 1);
-  }
-  /* The displaced line stays readable but stops competing. */
-  .term :global(.log-line:not(:last-child)) {
-    opacity: 0.38;
   }
   .term :global(.log-line.enter) {
     opacity: 0;
@@ -128,13 +177,32 @@ const current = (p: string) => (path === p || path === `${p}/` ? 'page' : undefi
   nav {
     display: flex;
     gap: var(--space-4);
+    /* Stays on the right edge on the wrapped second line too, where
+       space-between has nothing to push it against. */
+    margin-left: auto;
   }
+  /* The visible link stays the size the header's density wants. ::after
+     carries a 40px hit area centred on it, which overlaps the space-4 gap
+     between links without reaching the next one's glyphs. */
   nav a {
+    position: relative;
     text-decoration: none;
     color: var(--ink-dim);
   }
+  nav a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    height: 40px;
+  }
+  /* Decoration, not part of the link's name. See the h1 prompt glyph in
+     tokens.css for why the declaration is repeated. */
   nav a::before {
     content: './';
+    content: './' / '';
     color: var(--ink-faint);
   }
   nav a:hover {

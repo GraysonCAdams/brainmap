@@ -4,6 +4,7 @@ import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import { SITE } from '../site.config';
 import { DOMAINS, DOMAIN_LABELS } from '../content.config';
+import { ERAS, eraSpan } from '../scripts/MapEras';
 
 // Counts include tags: a node matches every domain it carries.
 const all = await getCollection('nodes');
@@ -22,18 +23,193 @@ for (const n of all) {
   for (const t of n.data.tech) techCounts.set(t, (techCounts.get(t) ?? 0) + 1);
 }
 const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
+
+// ---- The map index: the same graph as a real document.
+//
+// The canvas is a picture of this list. It is rendered at build time, so it is
+// what a crawler, a reader with JavaScript off and a screen reader all get,
+// and the script keeps it rather than replacing it (see map.ts: every link
+// here runs the same open-node handler a click on the dot runs). Removing it
+// would take keyboard access, assistive-technology access, no-JS access and
+// crawlability with it, all four at once.
+const byId = new Map(all.map((n) => [n.id, n]));
+const isChild = (n: (typeof all)[number]) => Boolean(n.data.parent && byId.has(n.data.parent));
+// A node whose detail lives on its parent has no page of its own, so its link
+// has to point where its story is actually told. Teasers have no page at all
+// and are rendered as plain text, never as a link into a 404.
+const hrefOf = (n: (typeof all)[number]) => {
+  if (n.data.visibility !== 'public') return null;
+  const target = n.data.detail === 'parent' && n.data.parent ? n.data.parent : n.id;
+  return `/idea/${target}`;
+};
+const newestFirst = (a: (typeof all)[number], b: (typeof all)[number]) =>
+  b.data.started.valueOf() - a.data.started.valueOf();
+const indexGroups = DOMAINS.map((d) => ({
+  domain: d,
+  label: DOMAIN_LABELS[d],
+  roots: all.filter((n) => n.data.domain === d && !isChild(n)).sort(newestFirst),
+})).filter((g) => g.roots.length > 0);
+const childrenOf = (id: string) => all.filter((n) => n.data.parent === id).sort(newestFirst);
+const yearsOf = (n: (typeof all)[number]) => {
+  if (n.data.visibility !== 'public') return '';
+  const a = n.data.started.getUTCFullYear();
+  const b = n.data.ended?.getUTCFullYear();
+  if (!b) return `${a} - present`;
+  return a === b ? `${a}` : `${a} - ${b}`;
+};
+const publicCount = all.filter((n) => n.data.visibility === 'public').length;
+// Employer work, the same test map.ts uses to knock a briefcase out of a dot.
+// Kept identical on purpose: a filter that selects a different set from the one
+// the badge marks would be worse than no filter.
+const orgCount = all.filter((n) => n.data.org && n.data.visibility === 'public').length;
+// The curated "start here" path, in the same order bio.astro renders it:
+// flagship nodes carrying a `featured` number, lowest first.
+const featured = all
+  .filter((n) => n.data.visibility === 'public' && n.data.featured)
+  .sort((a, b) => a.data.featured! - b.data.featured!);
 ---
 
 <Base>
   <Header />
-  <main>
+  <!-- id and tabindex are static rather than backfilled by the layout's script,
+       so the header's skip link has a target before any script runs. -->
+  <main id="main" tabindex="-1">
+    <!-- The page's heading. The canvas cannot carry one and the visible chrome
+         has no room for one, so it is clipped rather than absent: the homepage
+         had no h1 at all, which is a document-structure gap (WCAG 1.3.1) as
+         much as a search one. -->
+    <h1 class="sr-only">
+      {SITE.name}: a map of {all.length} ideas, and what became of them
+    </h1>
+    <!-- The intro sweep's visible exit. map.ts reveals it once the whoami
+         modal is gone and the tour is actually running, and retires it the
+         moment the tour ends by any exit. Declared this early so a keyboard
+         user meets it right after the header, before the index's long run of
+         links. -->
+    <button id="skip-intro" class="data" hidden>[ skip intro ]</button>
     <div id="map-root">
-      <noscript>
-        The map needs JavaScript. Everything on it is also in <a href="/bio">the bio</a>.
-      </noscript>
+      <!-- Runs while #map-root is the only thing parsed, before the index
+           below it exists, so a browser that is going to get the canvas never
+           paints the list at full width and then loses it. Without this the
+           page visibly flashes the whole index on every load.
+
+           Two ways back out, because a clipped list with no canvas is the one
+           state nothing on this page is usable in: map.ts clears the flag if
+           the map throws, and the timer clears it if the module never ran at
+           all. The timer is long enough not to fire on a slow connection; if
+           it ever does, map.ts sets the flag again a moment later. -->
+      <script is:inline>
+        (function () {
+          var r = document.currentScript.parentElement;
+          r.dataset.mapped = '1';
+          setTimeout(function () {
+            if (!r.querySelector('canvas')) delete r.dataset.mapped;
+          }, 6000);
+        })();
+      </script>
+      <a class="mi-skip data" href="#domain-panel">[ skip the index ]</a>
+      <nav id="map-index" aria-labelledby="mi-title">
+        <!-- The `##` is the house markdown-section idiom and belongs on screen,
+             but it is punctuation being read aloud in the landmark's name, so
+             only the words go to the accessibility tree. -->
+        <h2 id="mi-title" class="mi-title data"
+          ><span aria-hidden="true">## </span>the map, as a list</h2
+        >
+        <p class="mi-note">
+          Every idea the canvas draws, newest first. {publicCount} of {all.length} have a write-up;
+          the rest are still in stealth.
+          <noscript>The canvas itself needs JavaScript, but this is the same data.</noscript>
+        </p>
+        <!-- The same ten lines the map prints under its year watermark. That
+             overlay is rewritten every time the timeline moves, so it is
+             aria-hidden and a screen reader gets nothing from it; these
+             sentences are the only account of what each stretch of years was
+             about, so they are rendered here as ordinary content rather than
+             reachable only by dragging a scrubber. Same array, imported, not
+             retyped. -->
+        <h3 class="mi-domain mi-eras-title data">the years, in order</h3>
+        <dl class="mi-eras">
+          {
+            ERAS.map((era) => (
+              <>
+                <dt class="data">{eraSpan(era)}</dt>
+                <dd>{era[2]}</dd>
+              </>
+            ))
+          }
+        </dl>
+        {
+          indexGroups.map((g) => (
+            <section class="mi-group" style={`--lamp: var(--lamp-${g.domain})`}>
+              <h3 class="mi-domain data">{g.label}</h3>
+              <ul class="mi-list">
+                {g.roots.map((n) => (
+                  <li class="mi-item">
+                    <p class="mi-head">
+                      {hrefOf(n) ? (
+                        <a class="mi-name" href={hrefOf(n)}>
+                          {n.data.title}
+                        </a>
+                      ) : (
+                        <span class="mi-name is-locked">{n.data.title}</span>
+                      )}
+                      <span class="mi-when data">{yearsOf(n)}</span>
+                    </p>
+                    <p class="mi-tag">
+                      {n.data.visibility === 'public'
+                        ? n.data.tagline
+                        : 'In stealth. This one stays locked.'}
+                    </p>
+                    {childrenOf(n.id).length > 0 && (
+                      <ul class="mi-list mi-sub">
+                        {childrenOf(n.id).map((c) => (
+                          <li class="mi-item">
+                            <p class="mi-head">
+                              {hrefOf(c) ? (
+                                <a class="mi-name" href={hrefOf(c)}>
+                                  {c.data.title}
+                                </a>
+                              ) : (
+                                <span class="mi-name is-locked">{c.data.title}</span>
+                              )}
+                              <span class="mi-when data">{yearsOf(c)}</span>
+                            </p>
+                            <p class="mi-tag">
+                              {c.data.visibility === 'public'
+                                ? c.data.tagline
+                                : 'In stealth. This one stays locked.'}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
+      </nav>
+
+      <!-- The year watermark's subtitle. The watermark says when; this says
+           what that stretch was like, and the two are one caption, so they are
+           printed together and both read from `focus`. map.ts positions it
+           against the same viewCX/viewCY the watermark is drawn at.
+
+           aria-hidden: it is rewritten on every timeline move. The static
+           <dl class="mi-eras"> above carries the same sentences as real
+           content, which is the copy a screen reader gets. -->
+      <div id="map-era" aria-hidden="true" hidden>
+        <p class="era-span data"></p>
+        <p class="era-text"></p>
+      </div>
     </div>
 
-    <!-- cursor-following hover tooltip -->
+    <!-- What the filters just did, for a reader who cannot see the dots leave. -->
+    <p id="map-status" class="sr-only" role="status"></p>
+
+    <!-- node tooltip: follows the cursor on hover, pins to the dot for taps
+         that cannot open a write-up and for keyboard focus on index links -->
     <div id="map-tip" class="data" hidden>
       <p class="tip-org data"></p>
       <p class="tip-title"></p>
@@ -44,10 +220,13 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
 
     <!-- expanded project: modal overlay, URL updates to the real page -->
     <div id="node-modal" class="node-backdrop" hidden>
-      <section class="node-shell" role="dialog" aria-modal="true" aria-label="Project">
+      <!-- aria-label and the frame's title are rewritten per project by map.ts.
+           These two values are only ever announced if the modal is opened
+           before the script has resolved a node, which it cannot be. -->
+      <section class="node-shell" role="dialog" aria-modal="true" aria-label="Project write-up">
         <div class="node-bar data">
           <span class="node-bar-path" id="node-bar-path">/idea</span>
-          <button class="node-close" aria-label="Close">esc</button>
+          <button class="node-close" aria-label="Close this project">esc</button>
         </div>
         <iframe id="node-frame" title="Project write-up"></iframe>
       </section>
@@ -64,17 +243,35 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
           problem: constraints, edge cases, tradeoffs.
         </p>
         <div class="intro-actions data">
-          <button id="intro-close" autofocus>[ explore the map ]</button>
+          <button id="intro-close">[ explore the map ]</button>
           <a href="/bio">./bio</a>
           <a href="/resume">./resume</a>
         </div>
       </section>
     </div>
 
-    <aside id="domain-panel" class="data" aria-label="Filter by domain">
+    <!-- tabindex="-1" so the index's skip link can land focus here; without a
+         focus target the skip only moves the scroll position. -->
+    <aside id="domain-panel" class="data" aria-label="Filter the map" tabindex="-1">
       <button id="panel-toggle" aria-expanded="false">[ domains ]</button>
       <div class="panel-body">
-        <p class="panel-title">## domains</p>
+        <p class="panel-title">## work</p>
+        <button id="org-row" class="drow drow-org" data-org-filter="professional" aria-pressed="false">
+          <svg class="bag" viewBox="0 0 14 12" aria-hidden="true" focusable="false">
+            <path
+              d="M4.6 3V2.1c0-.6.5-1.1 1.1-1.1h2.6c.6 0 1.1.5 1.1 1.1V3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.1"></path>
+            <rect x="1" y="3" width="12" height="8" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.1"
+            ></rect>
+            <path d="M1 6.4h12" stroke="currentColor" stroke-width="1.1"></path>
+          </svg>
+          <span class="dname">professional only</span>
+          <span class="dcount">{orgCount}</span>
+        </button>
+        <p class="panel-hint">work done for an employer, the dots the map marks with a briefcase</p>
+        <p class="panel-title panel-title-stack">## domains</p>
         {
           panelDomains.map((d) => (
             <button
@@ -109,21 +306,72 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
           <span><i class="key key-retired"></i>retired</span>
           <span><i class="key key-teaser"></i>stealth</span>
         </div>
-        <p class="panel-hint">color = domain · size = scope</p>
+        <div class="key-rows key-size">
+          <span class="size-dots" aria-hidden="true">
+            <i class="ks ks-1"></i><i class="ks ks-2"></i><i class="ks ks-3"></i><i class="ks ks-4"
+            ></i><i class="ks ks-5"></i>
+          </span>
+          <span>size = scope, 1-5</span>
+        </div>
+        <p class="panel-hint">color = domain</p>
       </div>
     </aside>
 
+    <!-- The curated path. The numbered order is real (DESIGN.md: the only
+         numbered thing on the site is this path), and the map is where a
+         first visit lands, so the path gets a quiet foothold here and not
+         just on /bio. Links open the node modal through the same handler the
+         map index uses; map.ts owns the toggle. -->
+    {
+      featured.length > 0 && (
+        <nav
+          id="start-here"
+          class="data"
+          aria-label={`Start here: ${featured.length} projects in reading order`}
+        >
+          <button id="sh-toggle" aria-expanded="false">[ start here ]</button>
+          <ol id="sh-list" hidden>
+            {featured.map((n) => (
+              <li>
+                <a href={`/idea/${n.id}`}>{n.data.title}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
     <!-- timelapse: draggable time window + click-to-jump -->
-    <div id="timeline" class="data" aria-label="Time travel">
+    <!-- The three draggable parts are sliders, not decorated divs: dragging is
+         the only way to reach a year otherwise, and a drag has no keyboard
+         equivalent (WCAG 2.1.1). map.ts owns aria-valuenow/valuetext, since
+         those change on every frame of a scrub. -->
+    <div id="timeline" class="data" role="group" aria-label="Time travel">
       <div id="tl-track">
         <div id="tl-ticks"></div>
         <div id="tl-clip">
           <div id="tl-region" title="drag through time">
-            <div class="tl-edge" id="tl-edge-l" title="stretch how far back stays relevant"></div>
-            <div class="tl-edge" id="tl-edge-r" title="stretch how far ahead stays relevant"></div>
+            <div
+              class="tl-edge"
+              id="tl-edge-l"
+              title="stretch how far back stays relevant"
+              role="slider"
+              tabindex="0"
+              aria-label="Earliest year still on the map"></div>
+            <div
+              class="tl-edge"
+              id="tl-edge-r"
+              title="stretch how far ahead stays relevant"
+              role="slider"
+              tabindex="0"
+              aria-label="Latest year still on the map"></div>
           </div>
         </div>
-        <div id="tl-handle"></div>
+        <div
+          id="tl-handle"
+          role="slider"
+          tabindex="0"
+          aria-label="Year in focus"></div>
       </div>
       <button id="tl-reset" title="reset to today" aria-label="Reset to today">&#8634;</button>
     </div>
@@ -134,9 +382,13 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
 <script src="../scripts/map.ts"></script>
 
 <script>
+  import { createDialog } from '../scripts/MapDialog';
+
   // Intro modal: show until dismissed once on this device.
   const KEY = 'brainmap-intro-dismissed';
   const backdrop = document.getElementById('intro') as HTMLElement;
+  const shell = backdrop.querySelector('.intro-modal') as HTMLElement;
+  const closeBtn = document.getElementById('intro-close') as HTMLButtonElement | null;
   // The map's intro tour must not run behind this modal, or a first-time
   // visitor watches the whole thing through a dimmed backdrop and dismisses
   // it onto an already-settled map. The map waits for this signal.
@@ -145,22 +397,24 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     dispatchEvent(new Event('brainmap:begin'));
   };
   const close = () => {
+    if (backdrop.hidden) return;
     backdrop.hidden = true;
+    dialog.deactivate();
     localStorage.setItem(KEY, '1');
     begin();
   };
+  // Focus containment, Escape and page inertness all come from here; the
+  // dialog is a plain div, so nothing about that is free.
+  const dialog = createDialog(shell, { initialFocus: () => closeBtn, onClose: close });
   if (!localStorage.getItem(KEY)) {
     backdrop.hidden = false;
-    document.getElementById('intro-close')?.focus();
+    dialog.activate();
   } else {
     begin();
   }
-  document.getElementById('intro-close')?.addEventListener('click', close);
+  closeBtn?.addEventListener('click', close);
   backdrop.addEventListener('click', (ev) => {
     if (ev.target === backdrop) close();
-  });
-  addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && !backdrop.hidden) close();
   });
 </script>
 
@@ -184,10 +438,253 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     color: var(--ink-faint);
     font-size: var(--text-sm);
   }
-  noscript {
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ---- The index, and the two states it lives in.
+     Before the script runs (and forever, without JavaScript) it IS the page:
+     a scrolling document filling the map area. Once the canvas is up it is
+     clipped down to a screen-reader-only list, and comes back as a real panel
+     the moment anything inside it takes focus, so a keyboard user is never
+     tabbing through links they cannot see (WCAG 2.4.7). */
+  #map-index {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--ground);
+    /* Top padding clears the skip link, which is pinned above the heading and
+       is a real part of the layout in this state rather than a chip that only
+       appears on focus. */
+    padding: var(--space-12) var(--space-4);
+  }
+  .mi-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--ink-dim);
+    letter-spacing: 0.08em;
+  }
+  .mi-note {
+    margin: var(--space-2) 0 var(--space-6);
+    max-width: var(--measure);
+    color: var(--ink-faint);
+  }
+  /* Year on the left, sentence on the right, on one grid so the years line up
+     as a column the eye can run down. */
+  .mi-eras {
     display: grid;
-    place-items: center;
-    height: 100%;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-1) var(--space-3);
+    margin: var(--space-2) 0 var(--space-6);
+    font-size: var(--text-xs);
+  }
+  .mi-eras dt {
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .mi-eras dd {
+    margin: 0;
+    color: var(--ink-dim);
+  }
+  .mi-group {
+    margin-bottom: var(--space-6);
+  }
+  .mi-domain {
+    font-size: var(--text-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lamp, var(--ink-dim));
+    border-bottom: 1px solid var(--line);
+    padding-bottom: var(--space-1);
+  }
+  .mi-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .mi-item {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--line-faint);
+  }
+  /* Nested one level, tied back to its parent by the lamp-coloured rule rather
+     than by a bullet: a satellite is part of the thing above it, and the map
+     says so with a containment disc. */
+  .mi-sub {
+    margin: var(--space-2) 0 0 var(--space-3);
+    border-left: 1px solid var(--lamp, var(--line));
+    padding-left: var(--space-3);
+  }
+  .mi-sub .mi-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .mi-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin: 0;
+  }
+  .mi-name {
+    color: var(--ink);
+    text-decoration-color: var(--ink-faint);
+  }
+  .mi-name.is-locked {
+    color: var(--ink-dim);
+  }
+  .mi-when {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .mi-tag {
+    margin: 2px 0 0;
+    color: var(--ink-dim);
+    font-size: var(--text-xs);
+  }
+  /* Sits outside #map-index on purpose: focusing it must not be what opens the
+     panel, or the skip link can never be used without first opening the thing
+     it exists to skip. */
+  .mi-skip {
+    position: absolute;
+    top: var(--space-3);
+    left: max(var(--space-4), env(safe-area-inset-left, 0px));
+    z-index: 9;
+    color: var(--ink);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+    text-decoration: none;
+  }
+  /* Once the canvas is up the left gutter belongs to the domain panel, and a
+     skip link sitting on top of the control it skips TO is worse than an
+     unconventional position. */
+  #map-root[data-mapped] .mi-skip {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  #map-root[data-mapped] .mi-skip:not(:focus-visible):not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  #map-root[data-mapped] #map-index {
+    inset: auto auto auto 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  #map-root[data-mapped] #map-index:focus-within {
+    inset: var(--space-3) max(var(--space-4), env(safe-area-inset-right, 0px)) auto auto;
+    width: min(32rem, calc(100% - 2rem));
+    height: auto;
+    max-height: calc(100dvh - 8rem);
+    overflow-y: auto;
+    clip-path: none;
+    white-space: normal;
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    background: var(--surface-raised);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.28),
+      0 8px 20px rgb(0 0 0 / 0.34),
+      0 24px 56px rgb(0 0 0 / 0.44);
+  }
+  /* The map failed to load, or graph.json did. The list is still the page. */
+  .mi-fallback {
+    margin: 0 0 var(--space-4);
+    color: var(--ink-dim);
+  }
+
+  /* The era caption, printed under the year watermark. map.ts sets left/top to
+     the watermark's own centre point, so the two read as one caption instead of
+     a sentence in one corner describing a number in another.
+
+     Above the canvas, below every real control: the timeline at z-index 5 is
+     the lowest of those, and this must never sit over the scrubber that drives
+     it. pointer-events: none so a sentence lying across the map cannot eat a
+     drag. */
+  #map-era {
+    position: absolute;
+    z-index: 1;
+    /* Wide enough that a ~100-character sentence sets in two lines and reads
+       as the watermark's subtitle. At 36ch it broke to four and sat under the
+       year as a narrow paragraph, visibly a separate block rather than the
+       second half of one caption. */
+    width: min(52ch, 80vw);
+    /* left/top mark the watermark's centre, so pull the block half its width
+       back to centre on that point. It hangs below rather than straddling: the
+       digits are ~0.5em tall from the midpoint and the caption clears them. */
+    translate: -50% 0;
+    text-align: center;
+    pointer-events: none;
+    /* Same rule the watermark itself follows: ambient context steps back when
+       a dot is engaged rather than competing with the thing being read. */
+    transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  #map-era[hidden] {
+    display: none;
+  }
+  /* At rest the clusters have filled the middle, so the caption is set over
+     dots rather than empty ground. A soft ground wash separates it without a
+     panel edge, which would make an ambient caption look like a control.
+     z-index: -1 stays inside this element's own stacking context, so it lifts
+     off the canvas but never off the page. */
+  #map-era::before {
+    content: '';
+    position: absolute;
+    inset: -40% -10%;
+    z-index: -1;
+    background: radial-gradient(ellipse at center, var(--ground) 40%, transparent 72%);
+    opacity: 0.88;
+  }
+  #map-era.is-dimmed {
+    opacity: 0.3;
+  }
+  .era-span {
+    margin: 0 0 var(--space-1);
+    font-size: var(--text-xs);
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+  /* --ink-dim, not --ink-faint: this is the one sentence on the map carrying
+     his voice, and it is set over ground that may have dots behind it. The
+     faint token is for labels that sit beside something louder. */
+  .era-text {
+    margin: 0;
+    font-size: var(--text-base);
+    line-height: 1.5;
+    color: var(--ink-dim);
+    text-wrap: pretty;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #map-era {
+      transition: none;
+    }
   }
 
   #map-tip {
@@ -258,6 +755,8 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     display: grid;
     place-items: center;
     padding: var(--space-4);
+    padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
     z-index: 12;
   }
   .node-backdrop[hidden] {
@@ -330,9 +829,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     background: var(--ground);
   }
 
-  .panel-title-stack {
-    margin-top: var(--space-3);
-  }
   .stack-chips {
     display: flex;
     flex-wrap: wrap;
@@ -460,12 +956,22 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     text-decoration: underline;
   }
 
+  /* The page is viewport-fit=cover, so in landscape on a notched phone the
+     left gutter is under the cutout. The panel is the only chrome pinned to
+     that edge. */
   #domain-panel {
     position: absolute;
     top: var(--space-3);
-    left: var(--space-4);
+    left: max(var(--space-4), env(safe-area-inset-left, 0px));
     width: 13rem;
     font-size: var(--text-xs);
+  }
+  #domain-panel:focus {
+    outline: none;
+  }
+  #domain-panel:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
   #panel-toggle {
     display: none;
@@ -507,6 +1013,14 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     letter-spacing: 0.08em;
     margin: 0 0 var(--space-2);
   }
+  /* Declared after .panel-title on purpose: that rule sets `margin` as a
+     shorthand, so anything setting only margin-top before it is silently
+     zeroed. That is what ran the multi-tagged hint straight into `## stack`. */
+  .panel-title-stack {
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
   .drow {
     display: flex;
     align-items: center;
@@ -543,10 +1057,117 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   .dcount {
     color: var(--ink-faint);
   }
+  .drow-org {
+    color: var(--ink-dim);
+  }
+  .bag {
+    width: 11px;
+    height: 11px;
+    flex: none;
+    /* Optically level with the lamp dots in the rows below, which sit on the
+       text baseline rather than centred on the line box. */
+    margin-block-start: 1px;
+  }
+  .drow-org[aria-pressed='true'] .bag {
+    color: var(--ground);
+  }
   .panel-hint {
     color: var(--ink-faint);
     margin: var(--space-2) 0 0;
     font-size: 0.68rem;
+    line-height: 1.45;
+    /* The domain rows are 4px apart; this sentence is a note about them, not
+       another row, so it needs to read as attached to the block above and
+       clear of whatever follows. */
+    padding-inline: 2px;
+  }
+
+  /* The sweep's exit. Bottom right: the corner the tour never uses, clear of
+     the centred timeline on anything wider than a phone. Same chip chrome as
+     the other bracketed controls, with a real 40px target. */
+  #skip-intro {
+    position: absolute;
+    right: max(var(--space-4), env(safe-area-inset-right, 0px));
+    bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    z-index: 9;
+    font: inherit;
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    min-height: 40px;
+    cursor: pointer;
+    transition-property: color, border-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  #skip-intro:hover {
+    color: var(--ink);
+    border-color: var(--line-control);
+  }
+  #skip-intro[hidden] {
+    display: none;
+  }
+
+  /* The curated path's foothold on the map: a bracketed toggle in the corner
+     opposite the domain panel, a raised plate when open. The list is a real
+     <ol> because the order is the content. */
+  #start-here {
+    position: absolute;
+    top: var(--space-3);
+    right: max(var(--space-4), env(safe-area-inset-right, 0px));
+    z-index: 7;
+    font-size: var(--text-xs);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
+  }
+  #sh-toggle {
+    font: inherit;
+    color: var(--ink-dim);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    min-height: 40px;
+    cursor: pointer;
+    transition-property: color, border-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  #sh-toggle:hover,
+  #sh-toggle[aria-expanded='true'] {
+    color: var(--ink);
+    border-color: var(--line-control);
+  }
+  #sh-list {
+    margin: 0;
+    max-width: min(18rem, calc(100vw - 2rem));
+    background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
+    text-align: left;
+  }
+  #sh-list[hidden] {
+    display: none;
+  }
+  #sh-list li::marker {
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  #sh-list a {
+    display: inline-block;
+    padding: var(--space-1) 0;
+    color: var(--ink-dim);
+    text-decoration: none;
+  }
+  #sh-list a:hover {
+    color: var(--ink);
+    text-decoration: underline;
   }
 
   #timeline {
@@ -554,7 +1175,10 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     left: 50%;
     transform: translateX(-50%);
     bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-    width: min(42rem, calc(100% - 2rem));
+    width: min(
+      42rem,
+      calc(100% - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))
+    );
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -677,18 +1301,32 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
   #tl-edge-r {
     right: -4px;
   }
+  /* The element is a 24px square so the slider it now carries is a real target
+     (WCAG 2.5.8); the visible mark stays the same 3px bar, drawn by ::after.
+     Nothing is lost by the box being larger than the mark: a press anywhere on
+     the track scrubs to that year, so this element is not a pointer target in
+     its own right and never was. It holds the year marker and, since it became
+     focusable, the keyboard slider. */
   #tl-handle {
     position: absolute;
     top: 50%;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    cursor: grab;
+  }
+  #tl-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: 3px;
     height: 18px;
     transform: translate(-50%, -50%);
     background: var(--ink);
     border-radius: 1px;
-    cursor: grab;
   }
-  /* invisible fat hit area: the 3px handle is undraggable with a thumb */
-  #tl-handle::before,
+  /* invisible fat hit area: an 8px edge is undraggable with a thumb */
   .tl-edge::before {
     content: '';
     position: absolute;
@@ -738,8 +1376,46 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
       opacity: 0.45;
     }
   }
+  /* Size legend: the 1-5 scope scale radiusOf() draws, shrunk to panel
+     proportions. Ratio over fidelity: the map's dots run 15-31px across,
+     which no 13rem panel row can afford. */
+  .key-size {
+    align-items: center;
+    padding-top: var(--space-2);
+  }
+  .size-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ks {
+    border-radius: 50%;
+    background: var(--ink-dim);
+  }
+  .ks-1 {
+    width: 4px;
+    height: 4px;
+  }
+  .ks-2 {
+    width: 6px;
+    height: 6px;
+  }
+  .ks-3 {
+    width: 8px;
+    height: 8px;
+  }
+  .ks-4 {
+    width: 10px;
+    height: 10px;
+  }
+  .ks-5 {
+    width: 12px;
+    height: 12px;
+  }
 
-  /* touch devices: fatter targets, no hover-dependent chrome */
+  /* touch devices: fatter targets. The tooltip stays available here: map.ts
+     shows it for taps on dots that cannot open a write-up (stealth, or faded
+     out of the current era), which is the only caption those dots have. */
   @media (pointer: coarse) {
     .drow {
       padding: 7px var(--space-2);
@@ -758,9 +1434,6 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     }
     .node-close {
       padding: 6px 10px;
-    }
-    #map-tip {
-      display: none; /* tooltip is a hover affordance; tap opens the modal */
     }
   }
 
@@ -790,9 +1463,26 @@ const panelTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0,
     #domain-panel .panel-body {
       display: none;
     }
+    /* Dropped out of flow and hung under the toggle. The desktop rule bounds
+       the body against the whole viewport, which is right when the panel
+       starts at the top of the map and wrong here, where it starts below a
+       44px button on a viewport a third the height: the legend at the bottom
+       ran past the timeline and off the screen. The reserve covers the header,
+       the toggle and the timeline. */
     #domain-panel[data-open] .panel-body {
       display: grid;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
       margin-top: var(--space-2);
+      max-height: calc(100dvh - 15rem);
+    }
+    /* The timeline spans nearly the full width here, so the skip control
+       steps up a row: in the sweep's final phase the two are on screen
+       together, and the corner slot would cover the reset button. */
+    #skip-intro {
+      bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px) + 3rem);
     }
   }
   /* Kept last on purpose. These selectors match the per-control :active rules

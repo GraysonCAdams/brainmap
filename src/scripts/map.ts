@@ -10,7 +10,10 @@
  *
  * Interaction: hover = cursor-following tooltip; click = modal overlay
  * iframing the node's real page, with the URL updated via pushState so the
- * address bar always holds a shareable /idea/<slug> link.
+ * address bar always holds a shareable /idea/<slug> link. The tooltip is not
+ * hover-only: a tap on a dot that cannot open a write-up (stealth, or faded
+ * out of the current era) shows it, and focusing a link in the map index or
+ * the start-here path pins it to that link's dot.
  */
 import {
   forceCollide,
@@ -24,6 +27,8 @@ import {
 } from 'd3-force';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, type ZoomTransform } from 'd3-zoom';
+import { createDialog } from './MapDialog';
+import { ERAS, eraFor, eraSpan } from './MapEras';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -47,7 +52,15 @@ type GraphEdge = SimulationLinkDatum<GraphNode> & { kind?: 'parent' | 'link' };
 
 const root = document.getElementById('map-root');
 if (root) init(root).catch((err) => {
-  root.textContent = 'The map failed to load. Everything on it is in /bio.';
+  // The index is the page's real content and must survive a failure here: the
+  // canvas is a picture of it, not the other way round. Replacing it with an
+  // apology would take every project link down with the drawing.
+  root.removeAttribute('data-mapped');
+  root.querySelector('canvas')?.remove();
+  const note = document.createElement('p');
+  note.className = 'mi-fallback';
+  note.textContent = 'The map could not be drawn. Every idea on it is listed below.';
+  document.getElementById('map-index')?.prepend(note);
   console.error(err);
 });
 
@@ -72,14 +85,34 @@ async function init(root: HTMLElement) {
 
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  root.textContent = '';
+  // The build-time index inside #map-root stays exactly where it is; the
+  // canvas is laid over it and the marker attribute is what tells the
+  // stylesheet to clip the list down to a screen-reader-only copy. Clearing
+  // the container here (which is what this used to do) deleted every project
+  // link on the page and left the canvas as the only way to reach a write-up.
+  //
+  // An inline script in index.astro normally sets this during parse, so the
+  // list is never painted full-width. Setting it again covers the case where
+  // that script's own rescue timer fired first because this module was slow.
+  root.dataset.mapped = '1';
   const canvas = document.createElement('canvas');
   canvas.style.display = 'block';
+  canvas.style.position = 'absolute';
+  canvas.style.inset = '0';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
   canvas.style.cursor = 'grab';
   // Without this, mobile browsers claim pinch/pan for page zoom and scroll.
   canvas.style.touchAction = 'none';
+  // role=img, not role=application. The canvas has no focusable descendants
+  // and no keyboard model of its own to document: the list underneath it is
+  // the keyboard and assistive-technology route to the same nodes, and it is
+  // real markup that a screen reader can browse. role=application would put
+  // every reader into application mode and hand this file responsibility for
+  // all keyboard interaction inside a drawing that has none, which is exactly
+  // the misuse ARIA warns about. role=img says what it is: one self-contained
+  // picture, with a label describing it.
+  canvas.setAttribute('role', 'img');
   root.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('no 2d context');
@@ -138,12 +171,47 @@ async function init(root: HTMLElement) {
   };
   const viewCX = () => viewLeft + viewWidth / 2;
   const viewCY = () => viewHeight / 2;
+  // Watermark type size, shared with the draw loop so the caption printed
+  // underneath can clear the digits without a second copy of the size rule.
+  const wmSize = () => Math.min(viewWidth, viewHeight) * 0.3;
+
+  // ---- Era caption: the year watermark's subtitle.
+  //
+  // DOM rather than canvas, so the sentence wraps on its own, keeps the type
+  // tokens and stays selectable. The watermark is a single number and stays
+  // where it is drawn.
+  //
+  // Both are rendered from `focus`. That is the whole point of the pairing:
+  // when the sentence came from a schedule index and the year came from
+  // `focus`, the two could disagree, and did, for the entire beat the sweep
+  // holds still so the sentence can be read.
+  const eraEl = document.getElementById('map-era');
+  const eraSpanEl = eraEl?.querySelector('.era-span') as HTMLElement | null;
+  const eraTextEl = eraEl?.querySelector('.era-text') as HTMLElement | null;
+  const renderEra = () => {
+    if (!eraEl || !eraSpanEl || !eraTextEl) return;
+    const era = eraFor(focus);
+    eraSpanEl.textContent = eraSpan(era);
+    eraTextEl.textContent = era[2];
+    // Centred on the watermark horizontally (CSS pulls it back half its own
+    // width) and hung below it. The digits are drawn from a middle baseline at
+    // roughly 0.35 of the type size either way, so 0.42 clears them with a gap
+    // that scales with the type rather than a fixed pixel value that would
+    // collide on a phone.
+    eraEl.style.left = `${viewCX()}px`;
+    eraEl.style.top = `${viewCY() + wmSize() * 0.42}px`;
+    eraEl.hidden = false;
+  };
 
   resize();
   measureView();
+  // Not called here: `focus` is declared further down and would be in its
+  // temporal dead zone. The first paint comes from renderTimeline() during
+  // init, and the observer's own initial callback runs after this module body.
   new ResizeObserver(() => {
     resize();
     measureView();
+    renderEra();
   }).observe(root);
   // The panel changes size without the viewport changing, when the mobile
   // toggle opens it or a filter reflows the chip rows, so it needs watching
@@ -153,6 +221,29 @@ async function init(root: HTMLElement) {
 
   // Domain clusters: centroids on an ellipse, assigned in palette order.
   const domains = [...new Set(data.nodes.map((n) => n.domain))];
+
+  // The canvas is one image, so it gets one description: what is plotted, over
+  // what span, and what the visual encoding means. The detail lives in the
+  // index, and the label says so rather than pretending to substitute for it.
+  const years = data.nodes
+    .filter((n) => n.started)
+    .map((n) => new Date(n.started!).getUTCFullYear());
+  const domainNames = domains.map((d) => data.domainLabels?.[d] ?? d).join(', ');
+  canvas.setAttribute(
+    'aria-label',
+    `Map of ${data.nodes.length} projects from ${Math.min(...years)} to ${Math.max(...years)}, ` +
+      `clustered into ${domains.length} domains: ${domainNames}. Colour is the domain, ` +
+      `dot size is the scope of the project, and the treatment is its status: a hollow ring ` +
+      `is an idea, a solid glowing dot shipped, a dimmed dot retired. ` +
+      `The same projects are listed in full in the map index.`,
+  );
+
+  // Filter changes are a visual event: dots dim out and cluster rings shrink.
+  // This is where that gets said out loud.
+  const statusEl = document.getElementById('map-status');
+  const announce = (msg: string) => {
+    if (statusEl) statusEl.textContent = msg;
+  };
   const centroid = new Map<string, { x: number; y: number }>();
   domains.forEach((d, i) => {
     const angle = (i / domains.length) * Math.PI * 2 - Math.PI / 2;
@@ -330,6 +421,19 @@ async function init(root: HTMLElement) {
   sim.on('tick.satellites', placeSatellites);
   placeSatellites();
 
+  // A force layout settling is continuous motion for several seconds, which is
+  // the thing prefers-reduced-motion is asking not to see. Run it to its own
+  // end state up front instead, so the first frame drawn is the last frame the
+  // layout would have reached. sim.tick() advances the model without emitting
+  // tick events, hence the explicit placeSatellites() after; the internal
+  // timer is deliberately left alone so it still fires 'end' on the next frame
+  // and the listeners hanging off it (the pan extent, the deep-link camera)
+  // behave exactly as they do at full motion.
+  if (reducedMotion) {
+    for (let i = 0; i < 600 && sim.alpha() > sim.alphaMin(); i++) sim.tick();
+    placeSatellites();
+  }
+
   let transform: ZoomTransform = zoomIdentity.translate(viewCX(), viewCY());
   // Panning is bounded to the world the layout actually occupies plus a margin.
   // Without this you can drag the entire graph off-screen and be left staring
@@ -442,6 +546,10 @@ async function init(root: HTMLElement) {
   // ---- Facet filters: domains and tech; AND across facets, OR within.
   const activeDomains = new Set<string>();
   const activeTech = new Set<string>();
+  // A one-member set rather than a boolean, so it rides the same wireFacet
+  // path as the other two and inherits their announce and aria-pressed
+  // handling instead of growing a parallel one.
+  const activeOrg = new Set<string>();
   const matchesFilter = (n: GraphNode) => {
     const okDomain =
       activeDomains.size === 0 ||
@@ -449,7 +557,10 @@ async function init(root: HTMLElement) {
       (n.tags ?? []).some((t) => activeDomains.has(t));
     const okTech =
       activeTech.size === 0 || (n.tech ?? []).some((t) => activeTech.has(t));
-    return okDomain && okTech;
+    // The same test that knocks a briefcase out of the dot further down. If
+    // these two ever diverge, the filter selects a set the map is not marking.
+    const okOrg = activeOrg.size === 0 || Boolean(n.org && n.visibility === 'public');
+    return okDomain && okTech && okOrg;
   };
   const wireFacet = (attr: string, set: Set<string>) => {
     document.querySelectorAll<HTMLButtonElement>(`[${attr}]`).forEach((btn) => {
@@ -459,11 +570,23 @@ async function init(root: HTMLElement) {
         if (on) set.add(v);
         else set.delete(v);
         btn.setAttribute('aria-pressed', String(on));
+        // aria-pressed alone reports the button's own state. What a reader
+        // needs is the consequence: how much of the map is left.
+        const shown = data.nodes.filter(matchesFilter).length;
+        // The button's own text carries its match count as a second number,
+        // which reads as noise next to the count this sentence is about.
+        const label = btn.querySelector('.dname')?.textContent?.trim() ?? v;
+        announce(
+          activeDomains.size + activeTech.size + activeOrg.size === 0
+            ? `Filters cleared. All ${data.nodes.length} projects shown.`
+            : `${label} ${on ? 'on' : 'off'}. ${shown} of ${data.nodes.length} projects shown.`,
+        );
       });
     });
   };
   wireFacet('data-domain-filter', activeDomains);
   wireFacet('data-tech-filter', activeTech);
+  wireFacet('data-org-filter', activeOrg);
 
   // ---- Time engine: focus year + stretchable relevance window.
   const YEAR = 365.25 * 86400 * 1000;
@@ -537,6 +660,17 @@ async function init(root: HTMLElement) {
   // (the grab-offset math needs virtual positions past the track edge).
   // Only `focus` itself is clamped, at assignment.
   const fromPct = (p: number) => T0 + p * (NOW - T0);
+  const yearAt = (t: number) => new Date(t).getUTCFullYear();
+  const FIRST_YEAR = yearAt(T0);
+  const THIS_YEAR = yearAt(NOW);
+  // How far either edge of the relevance window can be stretched from focus.
+  const MAX_SPAN = 40 * YEAR;
+  const MAX_SPAN_YEARS = Math.round(MAX_SPAN / YEAR);
+  // The three sliders report years, not internal offsets, and each range is
+  // the range that value can actually take: focus is clamped to the span the
+  // map covers, and each edge can sit up to MAX_SPAN either side of it.
+  // Refreshed here rather than in the key handlers so a pointer drag keeps
+  // them true too.
   const renderTimeline = () => {
     tl.handle.style.left = `${pct(focus)}%`;
     // true width always; overhang past either end is clipped, never squashed
@@ -544,7 +678,90 @@ async function init(root: HTMLElement) {
     const r = pct(focus + ahead);
     tl.region.style.left = `${l}%`;
     tl.region.style.width = `${r - l}%`;
+
+    const setSlider = (el: HTMLElement, now: number, min: number, max: number, text: string) => {
+      el.setAttribute('aria-valuenow', String(now));
+      el.setAttribute('aria-valuemin', String(min));
+      el.setAttribute('aria-valuemax', String(max));
+      el.setAttribute('aria-valuetext', text);
+    };
+    const f = yearAt(focus);
+    const back = yearAt(focus - behind);
+    const fwd = yearAt(focus + ahead);
+    setSlider(tl.handle, f, FIRST_YEAR, THIS_YEAR, String(f));
+    setSlider(
+      tl.edgeL,
+      back,
+      f - MAX_SPAN_YEARS,
+      f,
+      `${back}, ${Math.round(behind / YEAR)} years back`,
+    );
+    setSlider(
+      tl.edgeR,
+      fwd,
+      f,
+      f + MAX_SPAN_YEARS,
+      `${fwd}, ${Math.round(ahead / YEAR)} years ahead`,
+    );
+    // The caption rides the same call every focus change already makes, so the
+    // sweep, travelTo, the drag and the keyboard steps all update it without
+    // four separate hooks that could each be forgotten.
+    renderEra();
   };
+  // Keyboard equivalent for the drag. Every one of these three is a drag
+  // handle and nothing else, so without this the whole time axis is
+  // pointer-only (WCAG 2.1.1). Arrow keys follow the slider pattern: right and
+  // up raise the year, left and down lower it, Page steps by five, Home and
+  // End go to the ends of the run.
+  const stepFor = (ev: KeyboardEvent): number | null => {
+    switch (ev.key) {
+      case 'ArrowRight':
+      case 'ArrowUp':
+        return YEAR;
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        return -YEAR;
+      case 'PageUp':
+        return 5 * YEAR;
+      case 'PageDown':
+        return -5 * YEAR;
+      default:
+        return null;
+    }
+  };
+  const wireSlider = (
+    el: HTMLElement,
+    ops: { step: (delta: number) => void; home: () => void; end: () => void },
+  ) => {
+    el.addEventListener('keydown', (ev) => {
+      const delta = stepFor(ev);
+      if (delta !== null) ops.step(delta);
+      else if (ev.key === 'Home') ops.home();
+      else if (ev.key === 'End') ops.end();
+      else return;
+      ev.preventDefault();
+      cancelSweep(); // same as grabbing it with a pointer: the tour yields
+      renderTimeline();
+    });
+  };
+  const clampSpan = (v: number) => Math.min(MAX_SPAN, Math.max(0.5 * YEAR, v));
+  wireSlider(tl.handle, {
+    step: (d) => (focus = Math.min(NOW, Math.max(T0, focus + d))),
+    home: () => (focus = T0),
+    end: () => (focus = NOW),
+  });
+  wireSlider(tl.edgeL, {
+    // The left edge reports a year, so a positive step moves it later, which
+    // means less of the past: `behind` shrinks as the edge rises.
+    step: (d) => (behind = clampSpan(behind - d)),
+    home: () => (behind = MAX_SPAN),
+    end: () => (behind = 0.5 * YEAR),
+  });
+  wireSlider(tl.edgeR, {
+    step: (d) => (ahead = clampSpan(ahead + d)),
+    home: () => (ahead = 0.5 * YEAR),
+    end: () => (ahead = MAX_SPAN),
+  });
   // tick marks every 5 years
   const tickFrom = Math.ceil(new Date(T0).getUTCFullYear() / 5) * 5;
   for (let y = tickFrom; y <= new Date(NOW).getUTCFullYear(); y += 5) {
@@ -643,9 +860,35 @@ async function init(root: HTMLElement) {
   // density-adaptive pacing (slow through crowded years, quick over dead air).
   let sweepActive = false;
   let sweepRaf = 0;
-  const startMsOf = new Map<string, number>(
-    data.nodes.filter((n) => n.started).map((n) => [n.id, Date.parse(n.started!)]),
-  );
+  // ---- The one line the header ever holds.
+  //
+  // Typed once at the start of the tour and left there. It is the site's
+  // wordmark in its issued form: the prompt is the same `gray@brainmap:~$` the
+  // static wordmark shows, so the header reads as one shell where a command
+  // was run, not as a log that scrolls. Nothing else is ever appended.
+  const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
+  const PROMPT =
+    '<span class="p-user">gray</span><span class="p-path">@</span>' +
+    '<span class="p-host">brainmap</span><span class="p-path">:~$</span> ';
+  let cmdEl: HTMLDivElement | null = null;
+  const drawCommand = (upTo: number, caret: boolean) => {
+    if (!cmdEl) return;
+    cmdEl.innerHTML = `${PROMPT}<span class="cmd">${CMD.slice(0, upTo)}</span>${
+      caret ? '<span class="cursor"></span>' : ''
+    }`;
+  };
+  /** Complete a command interrupted mid-type, and retire its caret. */
+  const settleCommand = () => drawCommand(CMD.length, false);
+
+  // The tour's visible exit. Every other way out (grabbing the timeline, the
+  // reset button) is a control a first-time visitor has to discover means
+  // "skip"; this one says so, stays on screen for the whole ~50s run, and
+  // leaves through the same cancelSweep path the others take.
+  const skipBtn = document.getElementById('skip-intro') as HTMLButtonElement | null;
+  // Skipping lands on the finished map, not on whichever year the tour had
+  // reached: travelTo runs cancelSweep first, then brings the clock to today.
+  skipBtn?.addEventListener('click', () => travelTo(NOW, 500));
+
   const cancelSweep = () => {
     if (!sweepActive) return;
     sweepActive = false;
@@ -659,12 +902,12 @@ async function init(root: HTMLElement) {
     behind = DEFAULT_BEHIND;
     ahead = DEFAULT_AHEAD;
     tl.wrap?.classList.remove('tl-enter');
-    // Put the header back the way it was: no reserved log height, no stranded
-    // caret, wordmark restored.
-    const h = document.querySelector('header');
-    h?.classList.remove('has-log');
-    const term = document.getElementById('term');
-    if (term) term.textContent = '';
+    // The command stays on screen. Skipping the tour skips the tour, not the
+    // shell it was issued from, so the only thing to settle is a command caught
+    // mid-keystroke: finish it and drop the caret rather than stranding half a
+    // filename in the header.
+    settleCommand();
+    if (skipBtn) skipBtn.hidden = true;
     renderTimeline();
   };
   // The tour only starts once the whoami modal is gone; running it behind the
@@ -682,75 +925,51 @@ async function init(root: HTMLElement) {
     renderTimeline();
     sweepActive = true;
 
-    // ---- Header narration. One container, every line a block-level div, so
-    // lines stack even before CSS lands. Appending pushes the older line up
-    // and out of the two-line window, which is the scroll.
     const termEl = document.getElementById('term');
     const headerEl = document.querySelector('header');
-    const line = (cls = '') => {
-      const el = document.createElement('div');
-      el.className = `log-line enter${cls ? ` ${cls}` : ''}`;
-      termEl?.appendChild(el);
-      // Keep the current line and the one it displaced; drop the rest.
-      while (termEl && termEl.children.length > 2) termEl.removeChild(termEl.firstChild!);
-      requestAnimationFrame(() => el.classList.remove('enter'));
-      return el;
-    };
-    // The prompt belongs to the command's own line, so it scrolls away with it.
-    const PROMPT =
-      '<span class="p-user">gray</span><span class="p-path">@</span>' +
-      '<span class="p-host">brainmap</span><span class="p-path">:~$</span> ';
-    const pushLine = (txt: string) => {
-      const el = line();
-      el.textContent = txt;
-    };
 
-    // Eras, not a manifest. The giant year watermark already says *when*; this
-    // line says what that stretch of time was actually like.
-    const ERAS: [number, number, string][] = [
-      [2003, 2006, 'a site my dad put up for me. i started changing things to see what would break'],
-      [2007, 2009, 'teaching it back on youtube, mostly to figure out if i understood it'],
-      [2010, 2011, 'local businesses needed websites. i needed the reps'],
-      [2012, 2013, 'free game server hosting, run out of a bedroom, and it kept growing'],
-      [2014, 2015, 'college. student radio, the newspaper, and one more matchmaking site'],
-      [2016, 2018, 'internships: telecom, hospitality, broadcast. enterprise systems up close'],
-      [2019, 2020, 'live streaming at scale, and a homelab that stopped being a hobby'],
-      [2021, 2023, 'the chip shortage. a startup on nights and weekends, and a lot of migrations'],
-      [2024, 2025, 'platform work. five days of setup down to under ten minutes'],
-      [2026, 2026, 'building faster than i can write it down. AI-assisted, openly'],
-    ];
     // Pacing is driven by READING TIME, not by idea density: an era holds the
     // screen for as long as its own sentence takes to read, so a long line is
-    // never yanked away mid-clause. ~34ms/char lands near a comfortable
-    // 250wpm, plus a settle beat before the eye starts.
-    const PER_CHAR = 52;
-    const SETTLE_MS = 1500;
+    // never yanked away mid-clause. 31ms/char is around 320wpm: brisk, and
+    // defensible only because these are plain conversational sentences rather
+    // than dense prose. A settle beat runs before the eye starts.
+    //
+    // Both numbers came down (from 52 and 1500) as the sentences grew from ~70
+    // characters to ~140, which holds the whole tour near its old ~52s instead
+    // of pushing it past a minute. The caption is what makes that affordable:
+    // it outlives the sweep and tracks the scrubber, so this window is no
+    // longer anyone's only chance to read a line.
+    const PER_CHAR = 31;
+    const SETTLE_MS = 1000;
     // Fraction of an era spent travelling. The remainder is a dead stop: the
     // year stops counting and the dots stop arriving so the sentence can be
     // read against a still frame. Reading against motion is the thing that
     // made this feel rushed even at a generous words-per-minute.
     const TRAVEL = 0.62;
-    const schedule = ERAS.map(([a, b, text]) => ({
-      from: Date.UTC(a, 0, 1),
-      to: Math.min(NOW, Date.UTC(b + 1, 0, 1)),
-      span: `${a === b ? a : `${a}-${b}`}`,
-      text,
-      dur: SETTLE_MS + text.length * PER_CHAR,
+    // `to` is the last instant INSIDE the era, not the first of the next one.
+    // Ending on January 1 of era[1] + 1 pushed focus into the following year at
+    // the end of every travel phase, so the watermark read one year while the
+    // caption underneath it still named the old range, and it held that way
+    // through the whole dead stop below. The caption reads eraFor(focus), so
+    // an off-by-one here is visible on screen rather than merely internal.
+    // Timings only. The words are no longer pulled from here: the caption
+    // reads eraFor(focus), so the schedule's one job is to say how long the
+    // clock spends in each era and where it sits while it does.
+    const schedule = ERAS.map((era) => ({
+      from: Date.UTC(era[0], 0, 1),
+      to: Math.min(NOW, Date.UTC(era[1], 11, 31, 23, 59, 59, 999)),
+      dur: SETTLE_MS + era[2].length * PER_CHAR,
     }));
     const SWEEP_MS = schedule.reduce((acc, e) => acc + e.dur, 0);
-    let eraIdx = -1;
-    // Maps elapsed wall-clock onto the focus year, and emits a line whenever
-    // the era changes.
+    // Maps elapsed wall-clock onto the focus year. It emits nothing: the
+    // caption is a function of the focus this returns, so moving the clock is
+    // the only thing the sweep has to do to narrate.
     const focusAt = (elapsed: number) => {
       let acc = 0;
       for (let i = 0; i < schedule.length; i++) {
         const e = schedule[i];
         const last = i === schedule.length - 1;
         if (elapsed < acc + e.dur || last) {
-          if (i !== eraIdx) {
-            eraIdx = i;
-            pushLine(`# ${e.span}  ${e.text}`);
-          }
           const raw = Math.max(0, Math.min(1, (elapsed - acc) / e.dur));
           // Ease out into the hold so the year decelerates rather than
           // stopping dead, then sits still for the rest of the beat.
@@ -763,28 +982,26 @@ async function init(root: HTMLElement) {
       return NOW;
     };
 
-    const CMD = 'chmod +x load_projects.sh && ./load_projects.sh';
     const typeCommand = (done: () => void) => {
       if (!termEl) return done();
       headerEl?.classList.add('has-log');
-      const el = line('cmd-line');
+      cmdEl = document.createElement('div');
+      cmdEl.className = 'log-line cmd-line enter';
+      termEl.appendChild(cmdEl);
+      const el = cmdEl;
+      requestAnimationFrame(() => el.classList.remove('enter'));
       let i = 0;
-      const render = (caret: boolean) => {
-        el.innerHTML = `${PROMPT}<span class="cmd">${CMD.slice(0, i)}</span>${
-          caret ? '<span class="cursor"></span>' : ''
-        }`;
-      };
-      render(true);
+      drawCommand(i, true);
       const tick = () => {
         if (!sweepActive) return;
         i++;
-        render(true);
+        drawCommand(i, true);
         if (i < CMD.length) setTimeout(tick, 26);
         // Beat after the command lands, before anything loads. Caret goes:
         // the command has been issued, it is not still being typed.
         else
           setTimeout(() => {
-            render(false);
+            drawCommand(i, false);
             done();
           }, 640);
       };
@@ -801,7 +1018,11 @@ async function init(root: HTMLElement) {
     introCam = true;
     tl.wrap?.classList.add('tl-enter');
 
-    whenBegun(() =>
+    whenBegun(() => {
+      // Revealed here, not when sweepActive was set: the whoami modal is
+      // still up until this callback fires, and a skip control behind an
+      // inert backdrop is chrome nobody can use yet.
+      if (skipBtn && sweepActive) skipBtn.hidden = false;
       typeCommand(() => setTimeout(() => {
       if (!sweepActive) return;
       // The script has run. The first year is the first event, and it is on
@@ -854,13 +1075,11 @@ async function init(root: HTMLElement) {
                 renderTimeline();
                 sweepActive = false;
                 introCam = false;
-                pushLine(`# ${data.nodes.length} of them, and still growing`);
-                // Let the closing line be read, then hand the header back to
-                // its resting state: log cleared, wordmark returned.
-                setTimeout(() => {
-                  if (termEl) termEl.textContent = '';
-                  headerEl?.classList.remove('has-log');
-                }, 3400);
+                // The tour is over, so its exit goes with it. That is the
+                // only cleanup the ending needs: the era caption under the
+                // watermark keeps narrating at rest, and the command in the
+                // header simply stays issued.
+                if (skipBtn) skipBtn.hidden = true;
               }
             };
             sweepRaf = requestAnimationFrame(narrow);
@@ -868,10 +1087,15 @@ async function init(root: HTMLElement) {
         }, HOLD_MS);
       };
       sweepRaf = requestAnimationFrame(step);
-      }, LINGER_MS)),
-    );
+      }, LINGER_MS));
+    });
   } else {
     renderTimeline();
+    // No sweep to frame the map, and no drift toward a fit either: one
+    // constrained jump straight to the transform the intro camera would have
+    // eased to. The dt is large enough that the chase term saturates, which is
+    // the same code path arriving at its own end state in a single step.
+    if (reducedMotion) fitCamera(data.nodes.filter((n) => relevance(n) > 0.05), 1e6);
   }
   const panel = document.getElementById('domain-panel');
   const toggle = document.getElementById('panel-toggle');
@@ -880,7 +1104,9 @@ async function init(root: HTMLElement) {
     toggle.setAttribute('aria-expanded', String(open));
   });
 
-  // ---- Hover tooltip: follows the cursor while over a dot.
+  // ---- Node tooltip: follows the cursor while hovering a dot; also pinned
+  // to a dot by taps that cannot open a write-up and by keyboard focus on
+  // index or start-here links (wired further down).
   const tip = document.getElementById('map-tip') as HTMLElement;
   const tipOrg = tip.querySelector('.tip-org') as HTMLElement;
   const tipTitle = tip.querySelector('.tip-title') as HTMLElement;
@@ -943,39 +1169,146 @@ async function init(root: HTMLElement) {
   };
 
   canvas.addEventListener('pointermove', (ev) => {
-    // Hover affordances are mouse/pen only; on touch a moving finger is a
-    // pan, and tap-to-open shows everything the tooltip would.
+    // Hover is mouse/pen only; on touch a moving finger is a pan. Touch gets
+    // the tooltip from the click handler instead, for taps on dots that
+    // cannot open a write-up and so would otherwise answer with nothing.
     if (ev.pointerType === 'touch') return;
     const r = canvas.getBoundingClientRect();
     const px = ev.clientX - r.left;
     const py = ev.clientY - r.top;
     hovered = pick(px, py);
     canvas.style.cursor = hovered ? 'pointer' : 'grab';
+    // Same rule the watermark follows a few hundred lines down: ambient
+    // context steps back while a dot is being read. Toggled here rather than
+    // in the draw loop so it is one class change per hover, not one per frame.
+    eraEl?.classList.toggle('is-dimmed', Boolean(hovered));
     if (hovered) showTip(hovered, px, py);
     else tip.hidden = true;
   });
   canvas.addEventListener('pointerleave', () => {
     hovered = null;
+    eraEl?.classList.remove('is-dimmed');
+    tip.hidden = true;
+  });
+  // A gesture starting is the tip's cue to leave: a pan drags the map out
+  // from under it, and on touch this is also what clears a tapped dot's tip
+  // when the next touch lands somewhere else. Mouse hover re-shows it on the
+  // next pointermove, so nothing is lost there.
+  canvas.addEventListener('pointerdown', () => {
     tip.hidden = true;
   });
 
   // ---- Expanded project: modal overlay, real URL via pushState.
   const modal = document.getElementById('node-modal') as HTMLElement;
+  const shell = modal.querySelector('.node-shell') as HTMLElement;
   const frame = document.getElementById('node-frame') as HTMLIFrameElement;
+  const closeBtn = modal.querySelector('.node-close') as HTMLButtonElement | null;
   const barPath = document.getElementById('node-bar-path');
+  const nodeDialog = createDialog(shell, {
+    initialFocus: () => closeBtn,
+    onClose: () => closeNode(false),
+  });
+  // Escape has to work from inside the frame too. The embedded page is its own
+  // document, so its keydown events never reach this one; same origin is what
+  // makes reaching in the other direction legal.
+  frame.addEventListener('load', () => {
+    frame.contentDocument?.addEventListener('keydown', (ev) => {
+      if ((ev as KeyboardEvent).key === 'Escape') closeNode(false);
+    });
+  });
   const openNode = (id: string, push: boolean) => {
     frame.src = `/idea/${id}?embed=1`;
     if (barPath) barPath.textContent = `/idea/${id}`;
+    // "Project" told a screen reader nothing about which of 95 it had landed
+    // in. The dialog and its frame are named after the thing they contain.
+    const title = byId.get(id)?.title ?? id;
+    shell.setAttribute('aria-label', `${title}, project write-up`);
+    frame.title = `${title}, project write-up`;
     modal.hidden = false;
     tip.hidden = true;
     if (push) history.pushState({ node: id }, '', `/idea/${id}`);
+    nodeDialog.activate();
   };
   const closeNode = (fromHistory: boolean) => {
     if (modal.hidden) return;
     modal.hidden = true;
     frame.src = 'about:blank';
+    // After the modal is hidden, so the trigger is focusable again by the time
+    // focus is handed back to it.
+    nodeDialog.deactivate();
     if (!fromHistory && history.state?.node) history.back();
   };
+  // ---- The index list and the start-here path open nodes through exactly
+  // this path.
+  //
+  // The handler reads the slug back out of the href rather than a data
+  // attribute, so the link a crawler follows and the node the click opens
+  // cannot drift apart: they are the same string. A modified click (new tab,
+  // download, middle button) is left alone, since the href is a real page.
+  const openFromLink = (ev: MouseEvent) => {
+    const target = ev.target as HTMLElement | null;
+    const a = target?.closest?.('a[href^="/idea/"]') as HTMLAnchorElement | null;
+    if (!a) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    if (ev.button !== 0) return;
+    const m = a.getAttribute('href')!.match(/^\/idea\/([^/?#]+)/);
+    if (!m || !byId.has(m[1])) return;
+    ev.preventDefault();
+    // Unlike a click on the canvas, which travels to a faded node's era
+    // instead of opening it, a click here is an explicit request for the
+    // write-up. Travel as well, so closing the modal leaves the dot on screen
+    // rather than in an era the map is no longer showing.
+    const n = byId.get(m[1])!;
+    if (relevance(n) < 0.85 && n.started) travelTo(Date.parse(n.started) + behind * 0.4);
+    openNode(m[1], true);
+  };
+  const indexEl = document.getElementById('map-index');
+  const startHereEl = document.getElementById('start-here');
+  indexEl?.addEventListener('click', openFromLink);
+  startHereEl?.addEventListener('click', openFromLink);
+
+  // Start-here disclosure. The list stays closed at rest: five numbered
+  // titles are index content, and the map already has an index. What earns a
+  // permanent place on the canvas is the single quiet pointer to the one
+  // genuinely ordered path.
+  const shToggle = document.getElementById('sh-toggle');
+  const shList = document.getElementById('sh-list');
+  shToggle?.addEventListener('click', () => {
+    if (!shList) return;
+    const closed = shList.toggleAttribute('hidden');
+    shToggle.setAttribute('aria-expanded', String(!closed));
+  });
+
+  // Keyboard route to the tooltip. The canvas is one picture (role=img), so
+  // the links in the index and the start-here path are how a keyboard user
+  // reaches a node. Focusing one gives it the pointer's treatment: the dot
+  // takes the hover ring and the tooltip pins to it, clamped to the viewport
+  // when the dot itself is outside the current view.
+  const nodeOfLink = (el: EventTarget | null): GraphNode | null => {
+    const a = (el as HTMLElement | null)?.closest?.('a[href^="/idea/"]');
+    const m = a?.getAttribute('href')?.match(/^\/idea\/([^/?#]+)/);
+    return m ? (byId.get(m[1]) ?? null) : null;
+  };
+  const focusTip = (ev: FocusEvent) => {
+    const n = nodeOfLink(ev.target);
+    if (!n) return;
+    hovered = n;
+    eraEl?.classList.add('is-dimmed');
+    showTip(
+      n,
+      Math.max(12, Math.min(width - 12, transform.applyX(n.x ?? 0))),
+      Math.max(12, Math.min(height - 12, transform.applyY(n.y ?? 0))),
+    );
+  };
+  const blurTip = () => {
+    hovered = null;
+    eraEl?.classList.remove('is-dimmed');
+    tip.hidden = true;
+  };
+  for (const host of [indexEl, startHereEl]) {
+    host?.addEventListener('focusin', focusTip);
+    host?.addEventListener('focusout', blurTip);
+  }
   // The embedded page hands its internal links back rather than following
   // them, so the modal's path readout and the browser's history keep
   // describing what is actually on screen. Navigating a node from inside a
@@ -989,26 +1322,36 @@ async function init(root: HTMLElement) {
   });
   canvas.addEventListener('click', (ev) => {
     const r = canvas.getBoundingClientRect();
-    const n = pick(ev.clientX - r.left, ev.clientY - r.top);
-    if (!n) return;
+    const px = ev.clientX - r.left;
+    const py = ev.clientY - r.top;
+    const n = pick(px, py);
+    if (!n) {
+      tip.hidden = true;
+      return;
+    }
     // A faded node from another era travels you back to its time instead of
-    // opening; fully-relevant nodes open the write-up.
+    // opening; fully-relevant nodes open the write-up. The two branches that
+    // do not open show the tooltip: on touch a tap is the only way to reach
+    // it at all, and on mouse it is already showing, so the call is idle.
     if (relevance(n) < 0.85 && n.started) {
+      showTip(n, px, py);
       travelTo(Date.parse(n.started) + behind * 0.4);
       return;
     }
-    if (n.visibility !== 'public') return;
+    if (n.visibility !== 'public') {
+      // A stealth dot never opens, so the tooltip's "stays locked" line is
+      // the whole answer a tap can get.
+      showTip(n, px, py);
+      return;
+    }
     // A node can be its own dot without being its own essay. Deferring nodes
     // open the parent's write-up, because that is where their story is told.
     const target = n.detail === 'parent' && n.parent ? n.parent : n.id;
     openNode(target, true);
   });
-  modal.querySelector('.node-close')?.addEventListener('click', () => closeNode(false));
+  closeBtn?.addEventListener('click', () => closeNode(false));
   modal.addEventListener('click', (ev) => {
     if (ev.target === modal) closeNode(false);
-  });
-  addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') closeNode(false);
   });
   addEventListener('popstate', () => {
     const m = location.pathname.match(/^\/idea\/([a-z0-9-]+)$/);
@@ -1030,9 +1373,14 @@ async function init(root: HTMLElement) {
     });
   }
 
-  // Animation state: labels type in / fade out; node visibility and cluster
+  // Animation state: labels fade in and out (and type in, during the sweep);
+  // node visibility and cluster
   // geometry are smoothed so nothing pops or snaps as the era changes.
   const labelAnim = new Map<string, { alpha: number; typed: number; bornAt: number }>();
+  // Title widths at a fixed 11px, measured once per node for the label
+  // placement pass. Mono glyph advances scale linearly with font size, so the
+  // per-frame world-space width is just this divided by the zoom factor.
+  const labelWidth = new Map<string, number>();
   const clusterAlpha = new Map<string, number>();
   const clusterGeo = new Map<string, { cx: number; cy: number; r: number }>();
   const nodeVis = new Map<string, number>();
@@ -1045,6 +1393,12 @@ async function init(root: HTMLElement) {
     if (document.hidden) return;
     const dt = Math.min(100, lastFrame ? t - lastFrame : 16);
     lastFrame = t;
+    // Under reduced motion every smoothed value lands on its target in a
+    // single frame. The easing is not decoration around the change, it IS the
+    // change being animated, so the honest reduction is to remove it rather
+    // than to shorten it. What is left is a still picture that redraws when
+    // the data behind it actually differs.
+    const chase = (ms: number) => (reducedMotion ? 1 : 1 - Math.exp(-dt / ms));
 
     // Smooth every node's visibility toward its raw relevance: dots grow in
     // and shrink away instead of jumping between eras.
@@ -1052,7 +1406,7 @@ async function init(root: HTMLElement) {
       const target = relevance(n);
       const cur = nodeVis.get(n.id) ?? 0;
       const diff = target - cur;
-      const step = dt / (diff > 0 ? 300 : 420);
+      const step = reducedMotion ? 1 : dt / (diff > 0 ? 300 : 420);
       nodeVis.set(n.id, cur + Math.sign(diff) * Math.min(Math.abs(diff), step));
     }
     const svOf = (n: GraphNode) => nodeVis.get(n.id) ?? 0;
@@ -1068,14 +1422,16 @@ async function init(root: HTMLElement) {
 
     // The year, dead center, everything floating over it. This IS the time
     // readout; it counts up during the intro sweep and tracks the scrubber.
-    ctx.font = `600 ${Math.min(viewWidth, viewHeight) * 0.3}px ${FONT_DATA}`;
+    // The era caption is printed directly under it from the same `focus`, and
+    // positions itself off wmSize(), so the two stay one caption.
+    ctx.font = `600 ${wmSize()}px ${FONT_DATA}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = INK;
     // The year is ambient context, not content. When a dot is engaged it steps
     // further back so it cannot compete with the thing being read.
     const wmTarget = hovered ? 0.018 : 0.05;
-    watermark += (wmTarget - watermark) * (1 - Math.exp(-dt / 180));
+    watermark += (wmTarget - watermark) * chase(180);
     ctx.globalAlpha = watermark;
     ctx.fillText(String(new Date(focus).getUTCFullYear()), viewCX(), viewCY());
     ctx.globalAlpha = 1;
@@ -1095,7 +1451,8 @@ async function init(root: HTMLElement) {
       );
       const target = members.length >= 1 ? 1 : 0;
       let ca = clusterAlpha.get(d) ?? 0;
-      ca = target ? Math.min(1, ca + dt / 260) : Math.max(0, ca - dt / 380);
+      if (reducedMotion) ca = target;
+      else ca = target ? Math.min(1, ca + dt / 260) : Math.max(0, ca - dt / 380);
       clusterAlpha.set(d, ca);
       if (ca < 0.02 || members.length === 0) continue;
       const tx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
@@ -1133,14 +1490,14 @@ async function init(root: HTMLElement) {
         geo = { cx: tx, cy: ty, r: tr };
         clusterGeo.set(d, geo);
       }
-      const k = 1 - Math.exp(-dt / 300);
+      const k = chase(300);
       geo.cx += (tx - geo.cx) * k;
       geo.cy += (ty - geo.cy) * k;
       // Growth and shrink are not symmetric. Lagging while growing leaves a dot
       // stranded outside the ring, which is the whole bug this guards against;
       // lagging while shrinking is merely a circle that stays roomy a moment
       // longer. So expand quickly and contract lazily.
-      geo.r += (tr - geo.r) * (1 - Math.exp(-dt / (tr > geo.r ? 80 : 420)));
+      geo.r += (tr - geo.r) * chase(tr > geo.r ? 80 : 420);
       const cx = geo.cx;
       const cy = geo.cy;
       const cr = geo.r;
@@ -1226,6 +1583,91 @@ async function init(root: HTMLElement) {
     }
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
+
+    // ---- Label placement: greedy, one pass per frame.
+    //
+    // A label is centred under its own dot with no knowledge of its
+    // neighbours, and forceCollide reserves footprint + 11 with nothing for
+    // the text, so in a dense cluster the boxes overlap into one smear
+    // ("Terraform Pl.Homelab Kubernetes"). Growing the collide radius would
+    // fix the text by scattering the dots, and the tight packing IS the
+    // clustering. So the layout stands and the labels negotiate instead:
+    // measure the box of every label that qualifies this frame, admit them in
+    // priority order (the hovered node first, since its label must never
+    // lose, then dot size, so the biggest work keeps its name), and skip any
+    // box that intersects one already admitted. A skipped label is not lost:
+    // it fades back in the moment zoom or motion gives it room.
+    const labelOk = new Set<string>();
+    {
+      type Box = { id: string; x0: number; y0: number; x1: number; y1: number; pri: number };
+      const candidates: Box[] = [];
+      for (const n of data.nodes) {
+        const sv = svOf(n);
+        // Birth bookkeeping runs for every node, admitted or not: bornAt
+        // marks when the dot first appeared during the sweep, not when its
+        // label won a slot.
+        const st = labelAnim.get(n.id) ?? { alpha: 0, typed: 0, bornAt: 0 };
+        labelAnim.set(n.id, st);
+        if (sweepActive && sv > 0.03 && st.bornAt === 0) st.bornAt = t;
+        if (!sweepActive && st.bornAt !== 0) st.bornAt = 0;
+        if (sv < 0.03 || !matchesFilter(n)) continue;
+        // Label hierarchy: flagships and the hovered node at rest; everything
+        // when zoomed in. During the intro sweep, ideas being born near the
+        // focus year announce themselves so the tour reads as a story, each
+        // holding ~2.6s before fading.
+        const birthLabel = sweepActive && st.bornAt > 0 && t - st.bornAt < 2600;
+        const isActive = hovered === n;
+        // Satellites label on hover and on deep zoom only.
+        //
+        // They are packed at roughly a third of the ambient node spacing,
+        // which is what makes a system read as one object, but their labels
+        // are full width horizontal text. Twelve of them inside one ring is a
+        // solid block of overlapping words that hides the parent's own label
+        // underneath it.
+        //
+        // The grouping is the information at this scale: a reader should see
+        // one system with a dozen members and reach for a specific member on
+        // purpose, via hover or by zooming into it. Naming all twelve
+        // unprompted answers a question nobody asked and destroys the thing
+        // it is labelling.
+        const labelWorthy = isChild(n)
+          ? isActive || transform.k >= 2.6
+          : isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2 || birthLabel;
+        if (!labelWorthy) continue;
+        let w = labelWidth.get(n.id);
+        if (w === undefined) {
+          ctx.font = `11px ${FONT_DATA}`;
+          w = ctx.measureText(n.title).width;
+          labelWidth.set(n.id, w);
+        }
+        const k = transform.k;
+        // Same geometry the draw below uses: centred, hung under the dot at
+        // its current (era-scaled) radius, 11px type. The box gets a small
+        // pad so admitted neighbours do not sit flush letter-to-letter.
+        const r = radiusOf(n) * (0.45 + 0.55 * sv);
+        const half = w / k / 2 + 2 / k;
+        const ly = (n.y ?? 0) + r + 14 / k;
+        candidates.push({
+          id: n.id,
+          x0: (n.x ?? 0) - half,
+          y0: ly - 11 / k,
+          x1: (n.x ?? 0) + half,
+          y1: ly + 3 / k,
+          pri: (isActive ? 1000 : 0) + radiusOf(n),
+        });
+      }
+      // The id tie-break keeps equal-radius neighbours in a stable order, so
+      // which of two colliding labels yields cannot flicker between frames.
+      candidates.sort((a, b) => b.pri - a.pri || (a.id < b.id ? -1 : 1));
+      const placed: Box[] = [];
+      for (const c of candidates) {
+        if (placed.some((p) => c.x0 < p.x1 && c.x1 > p.x0 && c.y0 < p.y1 && c.y1 > p.y0)) {
+          continue;
+        }
+        placed.push(c);
+        labelOk.add(c.id);
+      }
+    }
 
     for (const n of data.nodes) {
       const sv = svOf(n);
@@ -1321,40 +1763,29 @@ async function init(root: HTMLElement) {
         ctx.fillRect(x - w * 0.09, y - h * 0.42, w * 0.18, h * 0.42);
       }
 
-      // Label hierarchy: flagships and the hovered node at rest; everything
-      // when zoomed in. During the intro sweep, ideas being born near the
-      // focus year announce themselves so the tour reads as a story.
-      // During the sweep a label types the moment its dot appears on screen
-      // (wall-clock anchored), and holds ~2.6s before fading.
-      const st = labelAnim.get(n.id) ?? { alpha: 0, typed: 0, bornAt: 0 };
-      if (sweepActive && sv > 0.03 && st.bornAt === 0) st.bornAt = t;
-      if (!sweepActive && st.bornAt !== 0) st.bornAt = 0;
-      const birthLabel = sweepActive && st.bornAt > 0 && t - st.bornAt < 2600;
-      // Satellites label on hover and on deep zoom only.
-      //
-      // They are packed at roughly a third of the ambient node spacing, which
-      // is what makes a system read as one object, but their labels are full
-      // width horizontal text. Twelve of them inside one ring is a solid block
-      // of overlapping words that hides the parent's own label underneath it.
-      //
-      // The grouping is the information at this scale: a reader should see one
-      // system with a dozen members and reach for a specific member on purpose,
-      // via hover or by zooming into it. Naming all twelve unprompted answers
-      // a question nobody asked and destroys the thing it is labelling.
-      const isSat = isChild(n);
-      const labelWorthy = isSat
-        ? isActive || transform.k >= 2.6
-        : isActive || (n.scale ?? 2) >= 4 || transform.k >= 1.2 || birthLabel;
+      // Which labels get drawn is decided by the placement pass above; here
+      // the label only animates toward that verdict, so one denied a slot
+      // fades out rather than vanishing. The pass seeded every node's state,
+      // hence the bare get.
+      const st = labelAnim.get(n.id)!;
       const zoomAlpha = Math.max(0, Math.min(1, (transform.k - 0.45) / 0.35));
-      const wanted = labelWorthy && visible;
+      const wanted = labelOk.has(n.id);
       if (wanted) {
-        st.alpha = Math.min(1, st.alpha + dt / 150);
-        st.typed = Math.min(n.title.length, st.typed + dt / 26);
+        st.alpha = reducedMotion ? 1 : Math.min(1, st.alpha + dt / 150);
+        // The type-in is the sweep's narration: during the tour each dot is
+        // born alone, and its name typing out reads as an event. Everywhere
+        // else the label arrives whole, because the trigger at rest is the
+        // zoom threshold, which crosses on ~60 labels in the same frame, and
+        // sixty simultaneous type-ins read as noise rather than narration.
+        // The 150ms alpha fade above is the whole entrance.
+        st.typed =
+          reducedMotion || !sweepActive
+            ? n.title.length
+            : Math.min(n.title.length, st.typed + dt / 26);
       } else {
-        st.alpha = Math.max(0, st.alpha - dt / 380);
+        st.alpha = reducedMotion ? 0 : Math.max(0, st.alpha - dt / 380);
         if (st.alpha === 0) st.typed = 0;
       }
-      labelAnim.set(n.id, st);
 
       if (st.alpha > 0.02 && zoomAlpha > 0.02) {
         const typing = wanted && st.typed < n.title.length;
