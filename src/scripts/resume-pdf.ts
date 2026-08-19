@@ -31,9 +31,9 @@ const MARGIN = 40;
 const WIDTH = PAGE_W - MARGIN * 2;
 const BLACK = rgb(0, 0, 0);
 
-// Vertical rhythm. These are not free parameters: the canonical resume is 20
-// bullets across six roles, and at the original spacing it needed 751pt inside
-// a 692pt column, so it rendered as two pages. Every value below is tuned so
+// Vertical rhythm. These are not free parameters: the 2025 source resume was
+// 20 bullets across six roles, and at the original spacing it needed 751pt
+// inside a 692pt column, so it rendered as two pages. Every value below is tuned so
 // that document fits on one page with headroom, which is what `fitsOnePage`
 // asserts. Loosening any of them without re-running that check reintroduces a
 // two-page resume, and the overflow is silent because `ensure` just starts a

@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-08-19",
-  "basis": "seeded verbatim from resume-facts.json; replaced monthly by the refresh job",
+  "basis": "resume-facts.json after its 2026-08-19 expansion with promotion-era platform and AI work; warnermedia and fastalerts trimmed from the bottom to hold one page",
   "content": {
     "skillsets": [
       {
@@ -28,11 +28,13 @@
       {
         "id": "harris",
         "bullets": [
-          "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments",
-          "Standardized deployment of Python and .NET apps on Kubernetes (Deployments, StatefulSets, CronJobs), improving reliability and accelerating delivery across infrastructure teams",
-          "Rebuilt CI/CD pipelines with templating and conditional logic, enabling teams to define custom environments, approvals, and pre/post deploy steps",
-          "Embedded Mend and Aqua security scanning into CI/CD to block insecure code and containers, while enforcing pod security policies, RBAC, and Istio-based network controls to maintain cluster integrity",
-          "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide"
+          "Designed a scheduled-agent execution platform from scratch, pairing fetch-at-runtime code with pre-baked dependencies to close outbound package access at runtime and cut cold starts from roughly a minute to about five seconds",
+          "Designed and built the authorization layer and developer portal for an internal platform, including OAuth 2.0 scoped consent, per-tool scope enforcement, and a REST API surface",
+          "Designed a tiered taxonomy and registry-driven distribution system for a library of reusable AI tools and skills, and built the testing harness validating the shared connector platform's security controls",
+          "Founded and led a firm-wide community of practice for engineers adopting AI tools, defining its governance structure and a reporting line into the firm's AI governance process",
+          "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO",
+          "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide",
+          "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments"
         ]
       },
       {
@@ -54,9 +56,7 @@
         "bullets": [
           "Assisted in migrating the entire production workload for live streaming platforms from RKE to AWS EKS",
           "Transformed manual 100+ AWS resources (e.g. RDS, EC2, ELB) to IaC using Terraform / CloudFormation",
-          "Dockerized/migrated on-prem apps to multiple Kubernetes clusters with autoscaling node pools",
-          "Engineered a Python telemetry application, transmitting 120+ million vital metrics to Datadog, Zabbix, ELK",
-          "Conducted cloud environment audits, enhancing RBAC for AWS resources, integrating AWS Secrets Manager with applications, fortifying IT security and data integrity"
+          "Dockerized/migrated on-prem apps to multiple Kubernetes clusters with autoscaling node pools"
         ]
       },
       {
@@ -70,9 +70,7 @@
         "bullets": [
           "Launched startup used by 200,000 people addressing the challenges posed by the global computer chip shortage, focusing on alerting consumers to gaming hardware restocks",
           "Engineered a cloud-hosted Kubernetes cluster backbone for all application infrastructure",
-          "Scanned 500 retailer URLs concurrently using Celery multi-threading, caching data through Redis and SQL",
-          "Built full-stack service with Node.js / React / Python to distribute low-latency restock notifications to thousands of users",
-          "Reinforced API resilience through load balancing and replica sets, application firewalls, and caching policies"
+          "Scanned 500 retailer URLs concurrently using Celery multi-threading, caching data through Redis and SQL"
         ]
       }
     ]
