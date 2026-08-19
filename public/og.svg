@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="gray@brainmap:~$ terminal wordmark on a dark ground, with the map of ideas drawn as coloured dots joined by faint threads.">
+  <!--
+    Source for public/og.png, the site-wide link-preview card. Regenerate after
+    editing:
+
+        node scripts/og-render.mjs
+
+    The text is set in IBM Plex Mono and IBM Plex Sans. Neither is installed on
+    a typical machine, so the render script builds them from the woff files
+    already vendored in node_modules/@fontsource and hands them to the
+    rasteriser; viewing this file directly in a browser falls back to whatever
+    monospace and sans the browser has, which is expected and only affects the
+    preview, never og.png.
+
+    Colours are the literal token values from src/styles/tokens.css. They are
+    duplicated here because a static asset in public/ cannot read the
+    stylesheet; if a lamp colour changes there, change it here and re-render.
+    The dot field is not decoration: it is the map, drawn with the same
+    vocabulary the real one uses (solid = shipped, hollow ring = idea, dimmed =
+    retired), which is why og:image:alt describes it as the map.
+  -->
+  <defs>
+    <radialGradient id="glow-ai" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00a295" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#00a295" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-client" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#b4608a" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#b4608a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0c1214"/>
+  <rect x="24.5" y="24.5" width="1151" height="581" fill="none" stroke="#24333a" stroke-width="1"/>
+
+  <!-- the map: threads first so every dot sits on top of its own edges -->
+  <g stroke="#24333a" stroke-width="1.6" fill="none">
+    <path d="M905 150 820 235"/>
+    <path d="M905 150 960 262"/>
+    <path d="M1035 105 905 150"/>
+    <path d="M1035 105 1090 210"/>
+    <path d="M820 235 960 262"/>
+    <path d="M960 262 1090 210"/>
+    <path d="M960 262 1058 320"/>
+    <path d="M960 262 868 355"/>
+    <path d="M960 262 975 420"/>
+    <path d="M1090 210 1058 320"/>
+    <path d="M1058 320 1105 430"/>
+    <path d="M868 355 975 420"/>
+    <path d="M868 355 835 470"/>
+    <path d="M975 420 1105 430"/>
+    <path d="M975 420 1060 500"/>
+    <path d="M835 470 930 520"/>
+    <path d="M930 520 975 420"/>
+    <path d="M790 130 905 150"/>
+    <path d="M790 130 820 235"/>
+    <path d="M1060 500 1105 430"/>
+  </g>
+
+  <circle cx="960" cy="262" r="46" fill="url(#glow-ai)"/>
+  <circle cx="975" cy="420" r="36" fill="url(#glow-client)"/>
+
+  <g>
+    <circle cx="905" cy="150" r="9" fill="#3a73b9"/>
+    <circle cx="1035" cy="105" r="6" fill="#ba8824"/>
+    <circle cx="820" cy="235" r="7" fill="#62a653"/>
+    <circle cx="960" cy="262" r="13" fill="#00a295"/>
+    <circle cx="1058" cy="320" r="8" fill="#b14a31"/>
+    <circle cx="868" cy="355" r="6" fill="#3a98c0"/>
+    <circle cx="975" cy="420" r="10" fill="#b4608a"/>
+    <circle cx="835" cy="470" r="7" fill="#62a653"/>
+    <circle cx="1060" cy="500" r="6" fill="#00a295"/>
+    <!-- hollow = an idea not yet built -->
+    <circle cx="1090" cy="210" r="5.5" fill="none" stroke="#9a5cb4" stroke-width="2"/>
+    <circle cx="1105" cy="430" r="5" fill="none" stroke="#ba8824" stroke-width="2"/>
+    <circle cx="790" cy="130" r="5" fill="none" stroke="#b14a31" stroke-width="2"/>
+    <!-- dimmed = retired -->
+    <circle cx="930" cy="520" r="5" fill="#3a73b9" opacity="0.38"/>
+  </g>
+
+  <!-- wordmark: prompt glyphs in the accent, hostname in ink, block cursor after the $ -->
+  <text x="80" y="296" font-family="IBM Plex Mono Medium, IBM Plex Mono, monospace" font-size="62" font-weight="500" xml:space="preserve"><tspan fill="#62a653">gray@</tspan><tspan fill="#e9e6dc">brainmap</tspan><tspan fill="#6b7269">:~</tspan><tspan fill="#62a653">$</tspan></text>
+  <rect x="675.2" y="250" width="37.2" height="48" fill="#62a653" opacity="0.9"/>
+
+  <text x="80" y="364" font-family="IBM Plex Mono, monospace" font-size="27" fill="#a8a89c">Grayson Adams · Lead Software Engineer</text>
+
+  <g font-family="IBM Plex Sans, sans-serif" font-size="23" fill="#e9e6dc" opacity="0.82">
+    <text x="80" y="424">A living map of ideas and the projects they became:</text>
+    <text x="80" y="456">how I frame problems, the edge cases I hit,</text>
+    <text x="80" y="488">and what shipped.</text>
+  </g>
+
+  <line x1="80" y1="536" x2="712" y2="536" stroke="#24333a" stroke-width="1"/>
+  <text x="80" y="570" font-family="IBM Plex Mono, monospace" font-size="19" fill="#6b7269">idea · building · shipped · retired</text>
+</svg>

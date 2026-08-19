@@ -20,8 +20,9 @@ top nav is bio / resume / contact.
 - Terminal idiom is allowed exactly where it encodes something (prompt = a
   place you type, `./link` = navigation, `## header` = markdown-style section);
   never as scattered ASCII decoration.
-- Six domain lamp colors, one per domain in `content.config.ts`. They are the
-  only saturated colors on the site. Everything else is ground/ink/line tones.
+- Eight domain lamp colors, one per domain in `content.config.ts`. They are
+  the only saturated colors on the site. Everything else is ground/ink/line
+  tones.
 - Signature element: the constellation thread. Every node page renders a small
   build-time SVG of the node's immediate link neighborhood in its domain color,
   and it is a working nav element (neighbors are links).

@@ -22,7 +22,7 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
 
 <Base title="Bio" description={SITE.description}>
   <Header />
-  <main>
+  <main id="main" tabindex="-1">
     <h1>bio</h1>
     <section class="intro">
       <p>
@@ -52,49 +52,86 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
 
     <section class="log">
       <h2 class="data">the full log</h2>
-      <div class="filters data" role="group" aria-label="Filter the log">
-        {STATUSES.map((s) => <button class="chip" data-filter-status={s}>{s}</button>)}
+      {/* Three independent axes, so three named groups rather than one
+          undifferentiated bag of buttons: a reader tabbing in is told which
+          axis they are in. aria-pressed ships in the markup so the buttons
+          announce as toggles before the island runs, not just after. */}
+      <div class="filters data">
+        <div class="filter-set" role="group" aria-label="Filter by status">
+          {STATUSES.map((s) => (
+            <button class="chip" type="button" aria-pressed="false" data-filter-status={s}>
+              {s}
+            </button>
+          ))}
+        </div>
         <span class="filter-sep" aria-hidden="true"></span>
-        {DOMAINS.map((d) => <button class="chip" data-filter-domain={d}>{d}</button>)}
+        <div class="filter-set" role="group" aria-label="Filter by domain">
+          {DOMAINS.map((d) => (
+            <button class="chip" type="button" aria-pressed="false" data-filter-domain={d}>
+              {d}
+            </button>
+          ))}
+        </div>
         <span class="filter-sep" aria-hidden="true"></span>
-        {topTech.map((t) => <button class="chip" data-filter-tech={t}>{t}</button>)}
+        <div class="filter-set" role="group" aria-label="Filter by technology">
+          {topTech.map((t) => (
+            <button class="chip" type="button" aria-pressed="false" data-filter-tech={t}>
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
+      {/* Filtering hides rows with no visual announcement of its own, so the
+          count is the only feedback a reader who cannot see the table gets. */}
+      <p class="count data" role="status" aria-live="polite"></p>
 
-      <table>
-        <thead class="data">
-          <tr>
-            <th></th>
-            <th>idea</th>
-            <th class="col-tagline">what it is</th>
-            <th>domain</th>
-            <th>since</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            nodes.map((n) => (
-              <tr
-                data-status={n.data.status}
-                data-domain={[n.data.domain, ...n.data.tags].join(' ')}
-                data-tech={n.data.tech.join(' ')}
-              >
-                <td class="col-lamp">
-                  <Lamp domain={n.data.domain} status={n.data.status} />
-                </td>
-                <td class="col-title">
-                  <a href={`/idea/${n.id}`}>{n.data.title}</a>
-                </td>
-                <td class="col-tagline">{n.data.tagline}</td>
-                <td class="data col-domain">
-                  {n.data.domain}
-                  {n.data.tags.length > 0 && <span class="tags">+{n.data.tags.join(' +')}</span>}
-                </td>
-                <td class="data col-date">{fmt(n.data.started)}</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
+      {/* The table is wider than a phone and scrolls inside this box rather
+          than dragging the whole page sideways. tabindex makes the box itself
+          focusable, which is what lets a keyboard user scroll it. */}
+      <div class="table-scroll" role="region" aria-label="Project log" tabindex="0">
+        <table>
+          <caption class="sr-only">
+            Every public project, newest first.
+          </caption>
+          <thead class="data">
+            <tr>
+              <th scope="col"><span class="sr-only">status</span></th>
+              <th scope="col">idea</th>
+              <th scope="col" class="col-tagline">what it is</th>
+              <th scope="col">domain</th>
+              <th scope="col">since</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              nodes.map((n) => (
+                <tr
+                  data-status={n.data.status}
+                  data-domain={[n.data.domain, ...n.data.tags].join(' ')}
+                  data-tech={n.data.tech.join(' ')}
+                >
+                  <td class="col-lamp">
+                    <Lamp domain={n.data.domain} status={n.data.status} />
+                    {/* The lamp encodes status as hollow / solid / dimmed,
+                        which a sighted reader can read and an assistive one
+                        cannot. This is the same fact in words. */}
+                    <span class="sr-only">{n.data.status}</span>
+                  </td>
+                  <td class="col-title">
+                    <a href={`/idea/${n.id}`}>{n.data.title}</a>
+                  </td>
+                  <td class="col-tagline">{n.data.tagline}</td>
+                  <td class="data col-domain">
+                    {n.data.domain}
+                    {n.data.tags.length > 0 && <span class="tags">+{n.data.tags.join(' +')}</span>}
+                  </td>
+                  <td class="data col-date">{fmt(n.data.started)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   </main>
   <Footer />
@@ -103,6 +140,7 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
 <script>
   const chips = [...document.querySelectorAll<HTMLButtonElement>('.chip')];
   const rows = [...document.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+  const count = document.querySelector<HTMLElement>('.count')!;
   const apply = () => {
     const on = (attr: string) =>
       chips.filter((c) => c.hasAttribute(attr) && c.ariaPressed === 'true').map((c) => c.getAttribute(attr));
@@ -117,9 +155,13 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
       const okT = tech.length === 0 || tech.some((t) => rowTech.includes(t ?? ''));
       r.hidden = !(okS && okD && okT);
     }
+    // Silent while nothing is filtered: an unprompted "97 of 97" on page load
+    // is noise, and the table already says as much.
+    const anyOn = statuses.length + domains.length + tech.length > 0;
+    const shown = rows.filter((r) => !r.hidden).length;
+    count.textContent = anyOn ? `${shown} of ${rows.length} shown` : '';
   };
   for (const c of chips) {
-    c.ariaPressed = 'false';
     c.addEventListener('click', () => {
       c.ariaPressed = c.ariaPressed === 'true' ? 'false' : 'true';
       apply();
@@ -154,6 +196,7 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
   }
   h2.data::before {
     content: '## ';
+    content: '## ' / '';
   }
 
   .start-here {
@@ -165,6 +208,21 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
     padding: 0 0 0 1.4rem;
     display: grid;
     gap: var(--space-2);
+  }
+  /* The whole row is the target, tagline included. The title alone is 20px of
+     text on a 28px pitch, and the tagline beside it describes that same idea,
+     so there is nothing on the row that should go anywhere else.
+     Deliberately not display:flex, which would drop display:list-item and take
+     the numbering with it. This is the one genuinely ordered list on the site
+     and the numbers are the point of it. */
+  .start-here li {
+    position: relative;
+    min-height: 40px;
+  }
+  .start-here li a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
   }
   .start-here li::marker {
     font-family: var(--font-data);
@@ -184,33 +242,82 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
   .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    /* 19px vertical. Each chip carries a 40px hit area, and two of those
+       centred less than 40px apart split the difference between them, so the
+       row pitch is what the target actually comes out as: 21px of chip plus
+       19px of gap. Unlike the map's panel, this page has the vertical room. */
+    gap: 19px var(--space-2);
     align-items: center;
     margin: var(--space-3) 0 var(--space-4);
+  }
+  .filter-set {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 19px var(--space-2);
+    align-items: center;
   }
   .filter-sep {
     width: 1px;
     height: 14px;
     background: var(--line);
   }
+  /* Chips stay at their dense visible size and get the target from ::after,
+     which reaches into the flex gap without pushing the rows apart. Three
+     rows of them sit above the log, so growing the box would cost real
+     vertical space in the one place this page is trying to be a table. */
   .chip {
+    position: relative;
     font: inherit;
     font-size: var(--text-xs);
     color: var(--ink-dim);
     background: none;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-control);
     border-radius: var(--radius-chip);
     padding: 2px 8px;
     cursor: pointer;
+    transition-property: scale, color, border-color;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .chip::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    height: 40px;
+  }
+  /* Three-letter slugs like "php" render 39px wide. Centring inside a 40px
+     floor costs nothing on the longer ones. */
+  .chip {
+    min-width: 40px;
+    text-align: center;
   }
   .chip:hover {
     color: var(--ink);
     border-color: var(--ink-faint);
   }
+  .chip:active {
+    scale: 0.96;
+  }
   .chip[aria-pressed='true'] {
     color: var(--ground);
     background: var(--ink);
     border-color: var(--ink);
+  }
+
+  .count {
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    min-height: 1.2em;
+    margin: 0 0 var(--space-2);
+  }
+
+  /* Horizontal scroll belongs to the table, never to the page. */
+  .table-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
   }
 
   table {
@@ -234,9 +341,20 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
   .col-lamp {
     width: 1.2rem;
   }
+  /* One link per row and nothing else in the cell, so the target fills the
+     row's own height rather than sitting as a 17px strip inside it. Not an
+     inline link in a sentence, so the size exemption does not apply. */
+  .col-title {
+    position: relative;
+  }
   .col-title a {
     text-decoration: none;
     font-weight: 500;
+  }
+  .col-title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
   }
   .col-title a:hover {
     text-decoration: underline;
@@ -250,14 +368,54 @@ const topTech = [...techCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1
     font-size: var(--text-xs);
     white-space: nowrap;
   }
+  /* Was --line, which is a rule colour and measured 1.45:1 here: legible as a
+     border and not as words. The tags read as secondary against the domain
+     beside them through position and the leading '+', not through being
+     nearly invisible. */
   .col-domain .tags {
-    color: var(--line);
+    color: var(--ink-faint);
     margin-left: var(--space-1);
   }
 
   @media (max-width: 640px) {
     .col-tagline {
       display: none;
+    }
+    /* Titles are the widest thing left once the tagline column goes, and
+       wrapping them is what keeps the scroll box narrow enough to be worth
+       having. */
+    .col-title {
+      min-width: 9rem;
+    }
+  }
+
+  /* Forced colours strip the lamp's fill and its inset ring, so the status
+     column goes blank and the only channel left is the word underneath it.
+     Promote that word to visible text there. It is the same fact the dot was
+     carrying, and the column is already sized for a glyph. */
+  @media (forced-colors: active) {
+    .col-lamp .sr-only,
+    thead th:first-child .sr-only {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      clip-path: none;
+      font-size: var(--text-xs);
+    }
+    .col-lamp {
+      width: auto;
+      white-space: nowrap;
+    }
+  }
+
+  /* Last in the file on purpose: this ties with .chip:active on specificity,
+     so source order is the only thing left to decide it. The global rule in
+     tokens.css zeroes transition durations, which would leave the press
+     snapping instantly instead of not happening. */
+  @media (prefers-reduced-motion: reduce) {
+    .chip:active {
+      scale: none;
     }
   }
 </style>

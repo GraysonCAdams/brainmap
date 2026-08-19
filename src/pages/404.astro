@@ -1,0 +1,132 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+{/* noindex, follow: a 404 should not be indexed, and the routes below are
+    worth crawling. Real content rather than a redirect, so a crawler and a
+    reader are told the same thing. */}
+<Base
+  title="Not found"
+  description="That path does not exist on this site. Here is where everything actually lives."
+  noindex
+>
+  <Header />
+  <main id="main" tabindex="-1">
+    <h1>404</h1>
+    <p class="lede">
+      There is no page at this address. Either the link was wrong, or something that used to be
+      here has a different name now.
+    </p>
+
+    <h2 class="data">where things are</h2>
+    <ul class="routes">
+      <li>
+        <a href="/">the map</a>
+        <span>every idea, drawn as a graph. This is the front door.</span>
+      </li>
+      <li>
+        <a href="/bio">bio</a>
+        <span>the same ideas as a table you can filter and read down.</span>
+      </li>
+      <li>
+        <a href="/resume">resume</a>
+        <span>download the current one, or generate one tailored to a role.</span>
+      </li>
+      <li>
+        <a href="/contact">contact</a>
+        <span>including for telling me which link sent you here.</span>
+      </li>
+      <li>
+        <a href="/colophon">colophon</a>
+        <span>how the site is built and on what terms.</span>
+      </li>
+    </ul>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 400;
+  }
+  .lede {
+    color: var(--ink-dim);
+    margin: var(--space-2) 0 var(--space-8);
+  }
+  h2.data {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--line-faint);
+    padding-top: var(--space-3);
+    margin: 0 0 var(--space-2);
+  }
+  h2.data::before {
+    content: '## ';
+    content: '## ' / '';
+  }
+  .routes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  /* Rows, not a grid of two columns: the descriptions run to different
+     lengths and a fixed column would leave most of them stranded. */
+  .routes li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--line-faint);
+  }
+  .routes li:last-child {
+    border-bottom: 0;
+  }
+  /* Each row is one route, so the target is the row height rather than the
+     20px of glyphs. The 12px row padding is what the extension reaches into,
+     and the rows are 44px apart, so no two ever meet. */
+  .routes a {
+    position: relative;
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    color: var(--ink);
+    text-decoration: none;
+    min-width: 6rem;
+  }
+  .routes a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    height: 40px;
+  }
+  .routes a::before {
+    content: './';
+    content: './' / '';
+    color: var(--ink-faint);
+  }
+  .routes a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .routes span {
+    flex: 1;
+    min-width: 14rem;
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    text-wrap: pretty;
+  }
+</style>

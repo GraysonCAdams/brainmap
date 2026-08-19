@@ -84,21 +84,27 @@ const lastActive =
 
 <Base title={node.data.title} description={node.data.tagline}>
   <Header />
-  <main>
+  <main id="main" tabindex="-1">
     <article>
       <header class="plate" style={`--lamp: var(--lamp-${node.data.domain})`}>
+        {/* Read aloud, this line is four bare values in a row. The dots
+            between them are punctuation a sighted reader supplies for
+            themselves, so each value states what it is instead. */}
         <p class="plate-meta data">
           <Lamp domain={node.data.domain} status={node.data.status} />
-          <span>{node.data.status}</span>
+          <span><span class="sr-only">status: </span>{node.data.status}</span>
           <span class="sep" aria-hidden="true">·</span>
-          <span>{DOMAIN_LABELS[node.data.domain]}</span>
+          <span><span class="sr-only">domain: </span>{DOMAIN_LABELS[node.data.domain]}</span>
           <span class="sep" aria-hidden="true">·</span>
-          <time datetime={since}>{since}</time>
+          <span><span class="sr-only">started </span><time datetime={since}>{since}</time></span>
           {
             node.data.repo && (
               <>
                 <span class="sep" aria-hidden="true">·</span>
-                <a href={`https://github.com/${node.data.repo}`}>{node.data.repo}</a>
+                <a href={`https://github.com/${node.data.repo}`}>
+                  <span class="sr-only">repository: </span>
+                  {node.data.repo}
+                </a>
               </>
             )
           }
@@ -182,10 +188,14 @@ const lastActive =
   .plate {
     padding: var(--space-8) 0 0;
   }
+  /* Wraps, because the row can carry a repo path and a last-active date on
+     top of the three fixed fields, and on a 320px screen that ran off the
+     side and took the whole page's horizontal scroll with it. */
   .plate-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-1) var(--space-2);
     font-size: var(--text-xs);
     color: var(--ink-dim);
     margin: 0 0 var(--space-3);
@@ -315,6 +325,9 @@ const lastActive =
 
   .prose {
     font-size: var(--text-base);
+    /* Write-ups quote paths and identifiers inline. A token longer than the
+       column would otherwise push the page sideways rather than break. */
+    overflow-wrap: break-word;
   }
   .prose :global(h2) {
     font-family: var(--font-data);

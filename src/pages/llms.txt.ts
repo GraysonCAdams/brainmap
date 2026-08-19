@@ -26,6 +26,7 @@ export const GET: APIRoute = async ({ site }) => {
     '',
     '## Other',
     '',
+    `- [Every write-up above, concatenated into one file](${base}/llms-full.txt)`,
     `- [Bio and full project log](${base}/bio)`,
     `- [Colophon: how this site is made, and its license](${base}/colophon)`,
   ];

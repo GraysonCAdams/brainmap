@@ -7,11 +7,22 @@
   --surface-raised: #162125;
   --line: #24333a;
   --line-faint: #182226;
+  /* Boundary of anything you can operate: inputs, buttons, filter chips.
+     --line is 1.45:1 on the ground, which is right for a rule between rows
+     and not enough for the edge that tells you where a control is. WCAG
+     1.4.11 wants 3:1 for that edge; this clears it against all three surface
+     tones, 3.01:1 at the worst of them (--surface-raised). */
+  --line-control: #606b70;
 
   /* ink */
   --ink: #e9e6dc;
   --ink-dim: #a8a89c;
-  --ink-faint: #6b7269;
+  /* Third tier carries almost every label, timestamp and caption on the site,
+     and nearly all of it sits at --text-xs, so it has to clear the 4.5:1 that
+     body-size text needs against the lightest surface as well as the ground.
+     Measured 4.52:1 on --surface-raised, 5.20:1 on --ground. The warm-grey
+     hue is what keeps it reading as a dimmer ink and not a fourth colour. */
+  --ink-faint: #828880;
 
   /* domain lamps: the only saturated colors on the site.
      Validated (dataviz six checks, dark surface #0C1214): lightness band,
@@ -25,6 +36,13 @@
   --lamp-products: #b14a31;
   --lamp-platform: #3a98c0;
   --lamp-client-work: #b4608a;
+  /* The lamps are validated as dots on the ground, not as running text, and
+     four of them land under 4.5:1 there. --lamp-products is the one used as a
+     text colour (the failed-step line on /resume) at 3.27:1 on --surface, so
+     it gets a text-tier partner rather than an edit: same hue, lightened to
+     4.51:1 on --surface-raised. Anything else that wants a lamp as text needs
+     its own partner here, not a change upstairs. */
+  --lamp-products-text: #c2705d;
   /* prompt-glyph accent (wordmark user@, $ signs) */
   --prompt: #62a653;
 
@@ -103,6 +121,45 @@ a:hover {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+/* The two-pixel gap is what makes the ring work on a control that is itself
+   ink-coloured (the pressed filter chip, the submit button): the ring lands on
+   the ground rather than on the fill, so it stays at 15:1 either way. On a
+   dark control the gap is invisible and costs nothing. */
+
+/* Text present only for assistive technology. Not display:none, which would
+   take it out of the accessibility tree along with everything else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link. Off-screen until focused, then it lands as a real control in the
+   top-left corner. Rendered by Header.astro as the first thing in the body. */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: var(--space-2);
+  z-index: 100;
+  font-family: var(--font-data);
+  font-size: var(--text-sm);
+  color: var(--ground);
+  background: var(--ink);
+  border-radius: var(--radius-chip);
+  padding: var(--space-3) var(--space-3);
+  text-decoration: none;
+  /* Moved rather than hidden, so it keeps its box and can be focused. */
+  translate: 0 -200%;
+}
+.skip-link:focus {
+  translate: 0 0;
+}
 
 ::selection {
   background: var(--line);
@@ -122,8 +179,15 @@ h1 {
   font-weight: 500;
   letter-spacing: -0.01em;
 }
+/* The prompt glyph is punctuation, not part of the heading, and Chrome folds
+   ::before text into the accessible name: every h1 on the site announced as
+   "dollar <title>". The second declaration gives it empty alt text so it stays
+   on screen and drops out of the name. Declared twice on purpose, because a
+   browser without the alt-text syntax throws the whole declaration away and
+   would otherwise lose the glyph. */
 h1::before {
   content: '$ ';
+  content: '$ ' / '';
   color: var(--ink-faint);
 }
 
@@ -171,16 +235,70 @@ html {
   padding-top: 0 !important;
 }
 
-/* Touch ergonomics: 16px inputs stop iOS focus-zoom; bigger tap targets. */
+/* Touch ergonomics: 16px inputs stop iOS focus-zoom; bigger tap targets.
+   min-height does nothing to an inline <a>, which is what every nav link on
+   the site is, so the links get a box to apply it to and take the full 44px.
+   Buttons keep the lower blanket floor deliberately: the map's tech filter
+   chips wrap over eleven rows inside a fixed-height panel, so a floor applied
+   to every button multiplies by eleven there and pushes the status legend off
+   the bottom of the viewport. Individual controls that can afford a real
+   target set it at their own call site, and the dense ones extend with a
+   pseudo-element rather than growing their visible box. */
 @media (pointer: coarse) {
   input,
   textarea,
   select {
     font-size: 16px !important;
   }
-  button,
-  nav a {
+  button {
     min-height: 32px;
+  }
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+/* Windows High Contrast and friends replace the palette outright. A canvas
+   this dark otherwise survives on colours the mode has already thrown away:
+   every rule becomes invisible, the lamps lose their hue, and the pressed
+   filter chip stops looking pressed. Redraw those in system colours and let
+   the shape channels carry the rest. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+  .skip-link {
+    color: ButtonText;
+    background: ButtonFace;
+    border: 1px solid ButtonText;
+  }
+  /* forced-color-adjust: none would keep the lamp hue but at the cost of
+     ignoring the user's whole palette. The dots stay meaningful without it
+     because hollow/solid/dimmed is a shape channel, and every place a lamp
+     appears also names its status in text. */
+  th,
+  td {
+    border-color: CanvasText;
+  }
+  /* A filled button loses its fill here and reads as a line of text. The
+     border is what puts the box back. */
+  button {
+    border: 1px solid ButtonText;
+  }
+}
+
+/* Users who asked the OS for more contrast get the ink tiers collapsed
+   upward. Nothing here changes layout, so the density survives. */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-dim: var(--ink);
+    --ink-faint: #c2c4bd;
+    --line: #6d7a80;
+    --line-faint: #48555b;
+    --line-control: #8a969b;
+    --retired-dim: 0.65;
   }
 }
 

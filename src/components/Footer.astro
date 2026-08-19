@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
     )
   }
   <div class="row">
-    <nav class="data">
+    <nav class="data" aria-label="Elsewhere">
       <a href={`https://github.com/${SITE.github}`}>github</a>
       {SITE.linkedin && <a href={`https://www.linkedin.com/in/${SITE.linkedin}`}>linkedin</a>}
       <a
@@ -69,9 +69,26 @@ const year = new Date().getFullYear();
     gap: var(--space-4);
     font-size: var(--text-xs);
   }
+  /* Same treatment as the header nav: visible glyphs stay at --text-xs, an
+     ::after extension carries the 40px target. The row's space-4 gap is wider
+     than nothing, and the extension is vertical only, so neighbours never
+     overlap. */
   nav a {
+    position: relative;
     color: var(--ink-dim);
     text-decoration: none;
+  }
+  /* Sideways by 3px as well as vertically: "email" is only 35px of glyphs at
+     --text-xs, and the row's space-4 gap leaves room for the extension
+     without two neighbours ever meeting. */
+  nav a::after {
+    content: '';
+    position: absolute;
+    left: -3px;
+    right: -3px;
+    top: 50%;
+    translate: 0 -50%;
+    height: 40px;
   }
   nav a:hover {
     color: var(--ink);

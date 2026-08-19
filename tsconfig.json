@@ -1,5 +1,8 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  // functions/ targets the Cloudflare Workers runtime and has its own config.
+  // Its types redefine DOM globals like Response and Blob, so pulling them in
+  // here would break every browser-side script in src/.
+  "exclude": ["dist", "functions"]
 }

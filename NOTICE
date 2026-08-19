@@ -1,0 +1,22 @@
+brainmap
+Copyright (c) 2026 Grayson Adams
+
+This project is licensed in two parts.
+
+CODE is under the MIT License. See LICENSE. That covers everything in this
+repository except the directory named below: the Astro site, the canvas map
+renderer, the build scripts, and the Cloudflare Functions.
+
+CONTENT is not. Everything under src/content/ is the project write-ups
+themselves, and it is licensed Creative Commons Attribution-NonCommercial-
+NoDerivatives 4.0 International (CC BY-NC-ND 4.0):
+
+    https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+Use of that content to train, fine-tune, or otherwise develop a machine
+learning model is not permitted under any of the licenses granted here. This
+reservation is also declared in robots.txt and stated on the site at
+/colophon.
+
+Nothing in this file grants any right the MIT License does not grant, and
+nothing in the MIT License extends to the content described above.

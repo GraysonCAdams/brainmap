@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Grayson Adams · Brain Map",
+  "short_name": "Brain Map",
+  "description": "A living map of ideas and the projects they became: how I frame problems, the edge cases I hit, and what shipped.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "minimal-ui",
+  "background_color": "#0c1214",
+  "theme_color": "#0c1214",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

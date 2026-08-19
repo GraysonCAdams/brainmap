@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Three linked lamps on a dark ground">
+  <!--
+    Source of every raster icon on the site. Regenerate them after editing:
+
+        node scripts/icon-render.mjs
+
+    which writes favicon.ico, apple-touch-icon.png, icon-192.png and icon-512.png
+    next to this file.
+
+    The mark is the constellation thread from DESIGN.md reduced to what still
+    reads at 16px: three linked nodes in three domain lamp colours. There is
+    deliberately no frame and no rounding, so the same geometry survives being
+    scaled from a 16px tab strip to a 512px launcher tile. Colours are the
+    literal token values from src/styles/tokens.css; they are duplicated here
+    because a static asset in public/ cannot read the stylesheet.
+  -->
+  <rect width="32" height="32" fill="#0c1214"/>
+  <g stroke="#55666b" stroke-width="1.5" stroke-linecap="round" fill="none">
+    <path d="M10.5 21 22 10"/>
+    <path d="M10.5 21 24 23"/>
+    <path d="M22 10 24 23"/>
+  </g>
+  <circle cx="10.5" cy="21" r="5" fill="#62a653"/>
+  <circle cx="22" cy="10" r="3.6" fill="#3a73b9"/>
+  <circle cx="24" cy="23" r="3" fill="#ba8824"/>
+</svg>
