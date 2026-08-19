@@ -23,14 +23,14 @@ deploys nothing.
 | AI-crawler blocking | zone-level `ai_bots_protection: block` is ON; robots.txt stays the polite layer |
 | Zone page rules | `*graysonadams.com/meet*` -> calendarbridge 301 KEPT. The old catch-all `/*` -> grayada.ms 302 was deleted at cutover; restoring it would shadow the whole site |
 
-Runtime env still to be set on the project (Settings -> Environment variables,
-or the same PATCH used above; record per the deploy-secrets rule when set from
-a machine that can):
+Runtime secrets on the project (all set 2026-08-19; source-of-record vault
+items named below, values wired through sandbroker without entering a
+transcript):
 
-| Name | Type | Value |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | secret | dedicated key, spend cap recommended. Until set, `/api/resume` answers 503 and the page says the generator is not configured |
-| `NTFY_URL` / `NTFY_TOKEN` | secret | contact-form delivery. Blocked on exposing an authed ntfy endpoint (the box's ntfy is tunnel-internal and feeds the security stack); until then the form 503s and points at the email link |
+| Name | Vault item |
+|---|---|
+| `ANTHROPIC_API_KEY` | `Anthropic API Key: Portfolio` (Production) |
+| `FASTMAIL_API_TOKEN` | `Fastmail API token: portfolio-site` (Production); contact-form delivery, JMAP submission to the site's own address |
 
 ## Deploying
 
@@ -100,9 +100,9 @@ are load-bearing; never touch them when editing site records.
 
 - `/graph.json` serves; map renders; `/idea/<slug>` + `.md` mirror serve.
 - Grep a teaser node's body text against the deployed site: zero hits.
-- Contact form round-trips to ntfy once configured; `/api/resume` generates
-  and the PDF downloads once `ANTHROPIC_API_KEY` is set; 6th generation of
-  the day returns the budget message.
+- Contact form submission lands in the Fastmail inbox with Reply-To set to
+  the visitor; `/api/resume` generates and the PDF downloads; 6th generation
+  of the day returns the budget message.
 - `/resume/view` returns 200 `application/pdf`, one page, `Last-Modified`
   matching canonical-resume.json's `generatedAt`.
 - AI-crawler blocking: the zone setting targets verified crawlers by IP, so a
