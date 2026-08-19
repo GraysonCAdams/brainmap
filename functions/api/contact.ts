@@ -1,12 +1,12 @@
 /**
  * Contact form endpoint (Cloudflare Pages Function).
  *
- * Delivery is an email he sends to himself over Fastmail's JMAP API: the
- * visitor's message arrives in his inbox with Reply-To set to the address they
- * gave, so answering is a reply rather than a copy-paste. The recipient is
- * fixed to the site's own contact address on purpose. This endpoint fronts an
- * anonymous public form with his real sending identity behind it; letting the
- * form choose a recipient would make it an open relay wearing his address.
+ * Delivery is an email over Fastmail's JMAP API (src/scripts/jmap-mail.ts):
+ * the visitor's message arrives in his inbox with Reply-To set to the address
+ * they gave, so answering is a reply rather than a copy-paste. The recipient
+ * is fixed inside the mail module, never chosen here: this endpoint fronts an
+ * anonymous public form with his real sending identity behind it, and a form
+ * that picks recipients is an open relay wearing his address.
  *
  * Env (CF Pages project settings):
  *   TURNSTILE_SECRET     server-side Turnstile secret, shared with /api/resume
@@ -15,7 +15,7 @@
  *
  * Fails closed: without configuration it refuses rather than pretending.
  */
-import { SITE } from '../../src/site.config';
+import { sendMail } from '../../src/scripts/jmap-mail';
 
 interface Env {
   TURNSTILE_SECRET?: string;
@@ -27,127 +27,6 @@ const json = (status: number, body: unknown) =>
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-
-const JMAP_USING = [
-  'urn:ietf:params:jmap:core',
-  'urn:ietf:params:jmap:mail',
-  'urn:ietf:params:jmap:submission',
-];
-
-/**
- * Send the message to the site's own address via JMAP.
- *
- * Two round trips after the session fetch: mailbox and identity lookups have
- * no creation-state to reference, while the submission can name the email it
- * is sending with a `#creation-id`, so draft and submission share one call.
- * The draft is destroyed on successful send rather than moved to Sent; the
- * copy that matters is the one arriving in the inbox this is addressed to.
- *
- * Returns null on success, or a short reason for the log on failure. The
- * visitor only ever sees the generic delivery error either way; the reason
- * names which JMAP step balked, which is what debugging actually needs.
- */
-async function deliver(
-  token: string,
-  visitor: { name: string; email: string; message: string },
-): Promise<string | null> {
-  const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-  const session = (await (
-    await fetch('https://api.fastmail.com/jmap/session', { headers: auth })
-  ).json()) as {
-    apiUrl?: string;
-    primaryAccounts?: Record<string, string>;
-  };
-  const accountId = session.primaryAccounts?.['urn:ietf:params:jmap:mail'];
-  if (!session.apiUrl || !accountId) return 'session';
-
-  const call = async (methodCalls: unknown[]) =>
-    (await (
-      await fetch(session.apiUrl!, {
-        method: 'POST',
-        headers: auth,
-        body: JSON.stringify({ using: JMAP_USING, methodCalls }),
-      })
-    ).json()) as { methodResponses: [string, Record<string, unknown>, string][] };
-
-  const lookup = await call([
-    ['Mailbox/query', { accountId, filter: { role: 'drafts' } }, 'mb'],
-    ['Identity/get', { accountId }, 'id'],
-  ]);
-  const draftsId = (
-    lookup.methodResponses.find(([m]) => m === 'Mailbox/query')?.[1].ids as string[] | undefined
-  )?.[0];
-  const identities = lookup.methodResponses.find(([m]) => m === 'Identity/get')?.[1].list as
-    | { id: string; email: string }[]
-    | undefined;
-  const address = `${SITE.emailUser}@${SITE.emailDomain}`;
-  // Sending identity, in his stated preference order: the Gmail identity
-  // first (Fastmail relays it through Google's own SMTP; submission verified
-  // working 2026-08-19 despite its "unverified" flag), then his name on the
-  // site's own domain if that external credential ever lapses. Owned-domain
-  // identities are wildcards ("*@graysonadams.com"), so each preference
-  // matches exact-or-wildcard; the wildcard carries the concrete address.
-  // The published contact alias stays the recipient, never the sender.
-  const FROM_PREFERENCE = ['graysonadams@gmail.com', 'grayson@graysonadams.com'];
-  let identity: { id: string; email: string } | undefined;
-  let fromAddress = '';
-  for (const want of FROM_PREFERENCE) {
-    identity =
-      identities?.find((i) => i.email === want) ??
-      identities?.find((i) => i.email === `*@${want.split('@')[1]}`);
-    if (identity) {
-      fromAddress = want;
-      break;
-    }
-  }
-  if (!identity && identities?.[0]) {
-    // No preferred identity exists any more; any identity keeps the form
-    // alive, sending as itself since it cannot carry an address it does not
-    // own. The inbox copy is what matters, not the letterhead.
-    identity = identities[0];
-    fromAddress = identity.email.startsWith('*@') ? address : identity.email;
-  }
-  if (!draftsId || !identity) return 'lookup';
-
-  const send = await call([
-    [
-      'Email/set',
-      {
-        accountId,
-        create: {
-          msg: {
-            mailboxIds: { [draftsId]: true },
-            keywords: { $draft: true, $seen: true },
-            from: [{ name: SITE.name, email: fromAddress }],
-            to: [{ name: SITE.name, email: address }],
-            replyTo: [{ name: visitor.name, email: visitor.email }],
-            subject: `contact form: ${visitor.name}`,
-            bodyValues: {
-              t: {
-                value: `${visitor.message}\n\n--\n${visitor.name}\n${visitor.email}\nvia the graysonadams.com contact form`,
-              },
-            },
-            textBody: [{ partId: 't', type: 'text/plain' }],
-          },
-        },
-      },
-      'e',
-    ],
-    [
-      'EmailSubmission/set',
-      {
-        accountId,
-        onSuccessDestroyEmail: ['#sub'],
-        create: { sub: { emailId: '#msg', identityId: identity.id } },
-      },
-      's',
-    ],
-  ]);
-  const created = send.methodResponses.find(([m]) => m === 'EmailSubmission/set')?.[1].created as
-    | Record<string, unknown>
-    | undefined;
-  return created?.sub ? null : 'submission';
-}
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.TURNSTILE_SECRET || !env.FASTMAIL_API_TOKEN) {
@@ -186,9 +65,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const outcome = (await verify.json()) as { success: boolean };
   if (!outcome.success) return json(403, { error: 'Anti-spam check failed. Reload and try again.' });
 
+  // The site's own copy runs lowercase; mail does not. These land between
+  // real correspondence in his inbox, so they dress like it.
   let failure: string | null;
   try {
-    failure = await deliver(env.FASTMAIL_API_TOKEN, { name, email, message });
+    failure = await sendMail(env.FASTMAIL_API_TOKEN, {
+      subject: `Contact form: ${name}`,
+      body: `${message}\n\n--\n${name}\n${email}\nVia the graysonadams.com contact form`,
+      replyTo: { name, email },
+    });
   } catch (err) {
     console.error('contact delivery threw', err);
     failure = 'exception';

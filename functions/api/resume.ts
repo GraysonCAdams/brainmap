@@ -20,9 +20,13 @@
  * throughout, so drawing on it is not the same as inventing.
  *
  * Env (CF Pages settings; values recorded in 1Password MCP vault):
- *   ANTHROPIC_API_KEY   API key (spend-capped key recommended)
- *   TURNSTILE_SECRET    shared with the contact form
- *   RESUME_KV           KV namespace binding for rate limiting
+ *   ANTHROPIC_API_KEY    API key (spend-capped key recommended)
+ *   TURNSTILE_SECRET     shared with the contact form
+ *   RESUME_KV            KV namespace binding for rate limiting
+ *   FASTMAIL_API_TOKEN   optional; when present, every generation emails him
+ *                        what the visitor asked for and what came back. Sent
+ *                        fire-and-forget after the response: a mail failure
+ *                        must never cost the visitor their generation.
  *
  * Rate limits are deliberate and fail closed:
  *   5 generations per UTC day GLOBALLY, 2 per IP. KV get/increment is not
@@ -31,6 +35,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import facts from '../../src/data/resume-facts.json';
 import kb from '../../src/data/experience-kb.json';
+import { sendMail, type MailAttachment } from '../../src/scripts/jmap-mail';
+import { buildResumePdf, type GeneratedContent } from '../../src/scripts/resume-pdf';
 import {
   LEGACY_DOC,
   MAX_DESCRIPTION_CHARS,
@@ -50,6 +56,7 @@ interface Env {
   ANTHROPIC_API_KEY?: string;
   TURNSTILE_SECRET?: string;
   RESUME_KV?: KVNamespace;
+  FASTMAIL_API_TOKEN?: string;
 }
 
 const GLOBAL_LIMIT = 5;
@@ -164,7 +171,7 @@ async function readUpload(raw: unknown): Promise<Attached> {
   return { kind: 'text', name, text };
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   if (!env.ANTHROPIC_API_KEY || !env.TURNSTILE_SECRET || !env.RESUME_KV) {
     return json(503, { error: 'Resume generator is not configured yet.' });
   }
@@ -356,6 +363,74 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json(502, {
       error: 'Generation returned malformed data. Try again.',
     });
+  }
+
+  // Tell him what just happened, after the visitor has their answer. The
+  // notification carries what the visitor supplied and a server-side render
+  // of what came back; failures are logged and swallowed, because a mail
+  // problem must never surface as a generation problem or strand the slot.
+  if (env.FASTMAIL_API_TOKEN) {
+    const mailToken = env.FASTMAIL_API_TOKEN;
+    const gen = result as GeneratedContent;
+    const rawFile = body.file as { kind?: string; name?: string; b64?: string } | null | undefined;
+    waitUntil(
+      (async () => {
+        const attachments: MailAttachment[] = [];
+        try {
+          const { bytes } = await buildResumePdf(gen);
+          attachments.push({
+            name: 'Grayson Adams - Resume (as generated).pdf',
+            type: 'application/pdf',
+            bytes,
+          });
+        } catch (err) {
+          console.error('notification render failed', err);
+        }
+        // The original posting travels along when it arrived as bytes. A
+        // .docx attaches from the raw request body because readUpload only
+        // kept its extracted text; the bytes were already sniffed and
+        // size-capped before anything reached the model.
+        if (upload.kind !== 'none' && (rawFile?.kind === 'pdf' || rawFile?.kind === 'docx') && rawFile.b64) {
+          attachments.push({
+            name: upload.name,
+            type:
+              rawFile.kind === 'pdf'
+                ? 'application/pdf'
+                : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            bytes: base64ToBytes(rawFile.b64.replace(/\s+/g, '')),
+          });
+        }
+        const lines = [
+          'A visitor generated a tailored resume.',
+          '',
+          'What they typed:',
+          interest || '(nothing)',
+          '',
+        ];
+        if (upload.kind === 'none') {
+          lines.push('Attached posting: none.');
+        } else if (upload.kind === 'text') {
+          lines.push(`Attached posting: ${upload.name}, sent as text. Its full content:`, '', upload.text);
+        } else {
+          lines.push(`Attached posting: ${upload.name}, attached to this email.`);
+        }
+        lines.push(
+          '',
+          `Roles selected: ${gen.experienceBullets.map((e) => e.id).join(', ')}.`,
+          `Generations left today: ${GLOBAL_LIMIT - gCount - 1}.`,
+          '',
+          'The attached PDF is a server-side render of what the model returned.',
+          'The copy the visitor downloaded may differ slightly: the in-browser',
+          'vetting pass can still remove unverifiable claims and trim for fit.',
+        );
+        const failure = await sendMail(mailToken, {
+          subject: `Resume generated: ${(interest || (upload.kind !== 'none' ? upload.name : '') || 'no description given').slice(0, 80)}`,
+          body: lines.join('\n'),
+          attachments,
+        });
+        if (failure) console.error(`generation notification failed at: ${failure}`);
+      })().catch((err) => console.error('generation notification threw', err)),
+    );
   }
 
   return json(200, { result, remainingToday: GLOBAL_LIMIT - gCount - 1 });
