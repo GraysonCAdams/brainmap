@@ -12,7 +12,7 @@ tech: [php, mysql, jquery, xbox-live]
 
 ## Problem
 
-Halo 5's matchmaking paired you with strangers who were frequently muted and always gone after one game. Anyone wanting a recurring group for custom games, Forge, or campaign co-op had no way to find one and no way to keep one.
+Halo 5 shipped without an in-game browser for custom games, and matchmaking paired you with strangers who were frequently muted and always gone after one game. Anyone wanting a recurring group for custom games, Forge, or campaign co-op had no way to find one and no way to keep one. The gap was real enough that 343 added an official custom games browser roughly two years later; in December 2015 it was wide open.
 
 ## Constraints
 
