@@ -46,9 +46,14 @@ for (const e of facts.experience) {
 }
 
 const kb = { _generated: 'scripts/build-kb.mjs', profile: prior.profile ?? null, roles: {} };
+
+// A bullet keeps its date when the source recorded one. The private file
+// dates every Harris bullet so the generator can weight recency; public
+// prior-bullets predate that convention and come through undated.
+const toBullet = (b) => (b.date ? { text: b.text, date: b.date } : { text: b.text });
 for (const e of facts.experience) {
   if (e.internship === true) continue;
-  kb.roles[e.id] = { priorBullets: (prior.roles[e.id] ?? []).map((b) => b.text), writeups: [] };
+  kb.roles[e.id] = { priorBullets: (prior.roles[e.id] ?? []).map(toBullet), writeups: [] };
 }
 
 // Private bullets append to the public ones rather than replacing them, so a
@@ -56,7 +61,7 @@ for (const e of facts.experience) {
 // title's material first and the model reads it in the order given.
 for (const [id, bullets] of Object.entries(priv?.roles ?? {})) {
   if (!kb.roles[id]) throw new Error(`private-kb names an unknown role: ${id}`);
-  kb.roles[id].priorBullets.push(...bullets.map((b) => b.text));
+  kb.roles[id].priorBullets.push(...bullets.map(toBullet));
 }
 
 const skippedOrgs = new Set();
