@@ -81,17 +81,33 @@ async function deliver(
     | { id: string; email: string }[]
     | undefined;
   const address = `${SITE.emailUser}@${SITE.emailDomain}`;
-  // Fastmail identities for owned domains are wildcards ("*@grayada.ms"), so
-  // an exact match on the published address usually misses. Prefer exact,
-  // then the domain wildcard, and only then any identity at all; the last
-  // case sends from that identity's own address because a wildcard literal
-  // is not a deliverable From and an unrelated identity cannot carry ours.
-  const identity =
-    identities?.find((i) => i.email === address) ??
-    identities?.find((i) => i.email === `*@${SITE.emailDomain}`) ??
-    identities?.[0];
+  // Sending identity, in his stated preference order: the Gmail identity
+  // first (Fastmail relays it through Google's own SMTP; submission verified
+  // working 2026-08-19 despite its "unverified" flag), then his name on the
+  // site's own domain if that external credential ever lapses. Owned-domain
+  // identities are wildcards ("*@graysonadams.com"), so each preference
+  // matches exact-or-wildcard; the wildcard carries the concrete address.
+  // The published contact alias stays the recipient, never the sender.
+  const FROM_PREFERENCE = ['graysonadams@gmail.com', 'grayson@graysonadams.com'];
+  let identity: { id: string; email: string } | undefined;
+  let fromAddress = '';
+  for (const want of FROM_PREFERENCE) {
+    identity =
+      identities?.find((i) => i.email === want) ??
+      identities?.find((i) => i.email === `*@${want.split('@')[1]}`);
+    if (identity) {
+      fromAddress = want;
+      break;
+    }
+  }
+  if (!identity && identities?.[0]) {
+    // No preferred identity exists any more; any identity keeps the form
+    // alive, sending as itself since it cannot carry an address it does not
+    // own. The inbox copy is what matters, not the letterhead.
+    identity = identities[0];
+    fromAddress = identity.email.startsWith('*@') ? address : identity.email;
+  }
   if (!draftsId || !identity) return 'lookup';
-  const fromAddress = identity.email.startsWith('*@') ? address : identity.email;
 
   const send = await call([
     [
