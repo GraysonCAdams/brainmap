@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-08-19",
-  "basis": "resume-facts.json after its 2026-08-19 expansion with promotion-era platform and AI work; warnermedia and fastalerts trimmed from the bottom to hold one page",
+  "basis": "resume-facts.json after its 2026-08-19 expansion and Lead/Senior split; warnermedia and fastalerts trimmed from the bottom to hold one page",
   "content": {
     "skillsets": [
       {
@@ -32,7 +32,12 @@
           "Designed and built the authorization layer and developer portal for an internal platform, including OAuth 2.0 scoped consent, per-tool scope enforcement, and a REST API surface",
           "Designed a tiered taxonomy and registry-driven distribution system for a library of reusable AI tools and skills, and built the testing harness validating the shared connector platform's security controls",
           "Founded and led a firm-wide community of practice for engineers adopting AI tools, defining its governance structure and a reporting line into the firm's AI governance process",
-          "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO",
+          "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO"
+        ]
+      },
+      {
+        "id": "harris-senior",
+        "bullets": [
           "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide",
           "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments"
         ]

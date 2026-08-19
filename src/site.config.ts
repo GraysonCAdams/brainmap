@@ -10,7 +10,7 @@ export const SITE = {
   /** Flip when job hunting; renders the "open to opportunities" banner. */
   openToOpportunities: false,
   github: 'GraysonCAdams',
-  linkedin: '', // filled in before deploy
+  linkedin: 'graysonchaseadams',
   /**
    * Email is never written in plaintext in markup. These fragments are
    * assembled client-side (see ContactEmail component, phase 6).

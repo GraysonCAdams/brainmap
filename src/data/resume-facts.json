@@ -31,25 +31,26 @@
       "company": "Harris Associates",
       "role": "Lead Software Engineer (Platform/DevOps)",
       "location": "Chicago, IL",
-      "dates": "Sep 2024 — Present",
-      "titles": [
-        {
-          "role": "Lead Software Engineer (Platform/DevOps)",
-          "dates": "Jan 2026 — Present"
-        },
-        {
-          "role": "Senior DevOps Engineer",
-          "dates": "Sep 2024 — Jan 2026"
-        }
-      ],
+      "dates": "Jan 2026 — Present",
       "bullets": [
         "Designed a scheduled-agent execution platform from scratch, pairing fetch-at-runtime code with pre-baked dependencies to close outbound package access at runtime and cut cold starts from roughly a minute to about five seconds",
         "Designed and built the authorization layer and developer portal for an internal platform, including OAuth 2.0 scoped consent, per-tool scope enforcement, and a REST API surface",
         "Designed a tiered taxonomy and registry-driven distribution system for a library of reusable AI tools and skills, and built the testing harness validating the shared connector platform's security controls",
         "Founded and led a firm-wide community of practice for engineers adopting AI tools, defining its governance structure and a reporting line into the firm's AI governance process",
-        "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO",
+        "Served as a primary technical stakeholder for an internal AI research platform, working directly with firm partners and directors and coordinating recurring initiatives with the CTO"
+      ]
+    },
+    {
+      "id": "harris-senior",
+      "internship": false,
+      "company": "Harris Associates",
+      "role": "Senior DevOps Engineer",
+      "location": "Chicago, IL",
+      "dates": "Sep 2024 — Jan 2026",
+      "bullets": [
         "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide",
-        "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments"
+        "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments",
+        "Embedded Mend and Aqua security scanning into CI/CD to block insecure code and containers, while enforcing pod security policies, RBAC, and Istio-based network controls to maintain cluster integrity"
       ]
     },
     {
