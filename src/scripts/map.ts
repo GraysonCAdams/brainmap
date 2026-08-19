@@ -580,6 +580,11 @@ async function init(root: HTMLElement) {
   const wireFacet = (attr: string, set: Set<string>) => {
     document.querySelectorAll<HTMLButtonElement>(`[${attr}]`).forEach((btn) => {
       btn.addEventListener('click', () => {
+        // A filter is a question about the whole map, and the tour is parked
+        // in whatever year it had reached. End it the way the skip control
+        // does, rolling the clock up to today, so the answer is filtered
+        // against the full picture rather than a half-arrived 2012.
+        if (sweepActive) travelTo(NOW, 500);
         const v = btn.getAttribute(attr)!;
         const on = !set.has(v);
         if (on) set.add(v);
