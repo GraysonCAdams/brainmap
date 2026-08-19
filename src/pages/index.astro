@@ -624,10 +624,10 @@ const featured = all
      the watermark's own centre point, so the two read as one caption instead of
      a sentence in one corner describing a number in another.
 
-     Above the canvas, below every real control: the timeline at z-index 5 is
-     the lowest of those, and this must never sit over the scrubber that drives
-     it. pointer-events: none so a sentence lying across the map cannot eat a
-     drag. */
+     Above the canvas, below every real control: the timeline and the domain
+     panel at z-index 5 are the lowest of those, and this must never sit over
+     the scrubber that drives it or the panel's legend. pointer-events: none so
+     a sentence lying across the map cannot eat a drag. */
   #map-era {
     position: absolute;
     z-index: 1;
@@ -664,6 +664,16 @@ const featured = all
   }
   #map-era.is-dimmed {
     opacity: 0.3;
+  }
+  /* A hand on the camera while the clock stands still: the reader is
+     exploring space, not time, and a sentence about a year they have panned
+     away from is noise. Slower than the dim above because this is a retreat,
+     not a step back; renderEra lifts the class the next time the watermark
+     year actually changes. Declared after is-dimmed so a stale caption stays
+     gone even while a dot is hovered. */
+  #map-era.is-stale {
+    opacity: 0;
+    transition-duration: 600ms;
   }
   .era-span {
     margin: 0 0 var(--space-1);
@@ -965,6 +975,11 @@ const featured = all
     left: max(var(--space-4), env(safe-area-inset-left, 0px));
     width: 13rem;
     font-size: var(--text-xs);
+    /* In the control band with the timeline. Without this the panel sits at
+       z-auto and the era caption (z-index 1) prints over its legend rows,
+       which on a phone is exactly where the expanded panel and the watermark
+       centre share the screen. */
+    z-index: 5;
   }
   #domain-panel:focus {
     outline: none;

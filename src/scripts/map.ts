@@ -188,9 +188,18 @@ async function init(root: HTMLElement) {
   const eraEl = document.getElementById('map-era');
   const eraSpanEl = eraEl?.querySelector('.era-span') as HTMLElement | null;
   const eraTextEl = eraEl?.querySelector('.era-text') as HTMLElement | null;
+  // The watermark year last narrated. Panning marks the caption stale (see
+  // the zoom handler); only the year moving again earns it back, so a resize
+  // or hover repaint cannot resurrect a caption the reader panned away from.
+  let eraYearShown = NaN;
   const renderEra = () => {
     if (!eraEl || !eraSpanEl || !eraTextEl) return;
     const era = eraFor(focus);
+    const year = new Date(focus).getUTCFullYear();
+    if (year !== eraYearShown) {
+      eraYearShown = year;
+      eraEl.classList.remove('is-stale');
+    }
     eraSpanEl.textContent = eraSpan(era);
     eraTextEl.textContent = era[2];
     // Centred on the watermark horizontally (CSS pulls it back half its own
@@ -475,6 +484,12 @@ async function init(root: HTMLElement) {
     .scaleExtent([0.35, 3.5])
     .on('zoom', (ev) => {
       transform = ev.transform;
+      // Only a real hand on the camera: sourceEvent is null for programmatic
+      // moves (travelTo, the sweep), which must not silence the caption they
+      // are narrating over. A gesture while the year stands still means the
+      // reader is exploring space, not time, so the caption fades until the
+      // watermark year changes again (renderEra lifts the class).
+      if (ev.sourceEvent) eraEl?.classList.add('is-stale');
     })
     .on('start', () => (canvas.style.cursor = 'grabbing'))
     .on('end', () => (canvas.style.cursor = 'grab'));
