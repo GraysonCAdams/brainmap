@@ -14,3 +14,8 @@ research/
 # local Cloudflare Functions secrets (never committed; see .dev.vars.example)
 .dev.vars
 .wrangler/
+# Employer material and anything generated from it. This repo is public: the
+# Harris write-ups are safe line by line and not safe as a collection, so they
+# stay on disk. experience-kb.json is derived from them, so it goes too.
+src/data/*.local.json
+src/data/experience-kb.json

@@ -1,0 +1,12 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": ["**/*.ts", "../src/data/*.json"],
+  "compilerOptions": {
+    // PagesFunction, KVNamespace and Fetcher come from here. Kept out of the
+    // root config on purpose: these types replace the DOM lib's Response and
+    // Blob, which browser-side code in src/ needs the real versions of.
+    "types": ["@cloudflare/workers-types"],
+    "resolveJsonModule": true,
+    "noEmit": true
+  }
+}

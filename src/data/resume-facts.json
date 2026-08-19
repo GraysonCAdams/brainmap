@@ -1,5 +1,5 @@
 {
-  "_comment": "Canonical resume facts from Grayson Adams Resume 2025.pdf. The generator may re-weight and rephrase bullets but NEVER invents employers, dates, titles, or numbers. Phone number deliberately excluded from the public generator.",
+  "_comment": "Canonical resume facts from Grayson Adams Resume 2025.pdf. The generator may re-weight bullets, rephrase them, and drop whole roles that are not relevant to the reader, but it NEVER invents employers, dates, titles, or numbers. Phone number deliberately excluded from the public generator. Set internship:true on any role that was an internship or a student job: those are filtered out in code and never reach the page, regardless of what the model selects. A `titles` array records a promotion within one employer, newest first; the bullets stay attached to the whole tenure because which title a given accomplishment fell under is not recorded anywhere. `role` and `dates` remain the whole-tenure summary and are what prints when `titles` is absent. AT&T is modelled the other way, as two entries with their own bullets, because his own resume splits it that way.",
   "name": "Grayson C. Adams",
   "contactLine": "Chicago, IL • grayson@graysonadams.com • linkedin.com/in/graysonchaseadams",
   "skillsets": [
@@ -12,10 +12,15 @@
   "experience": [
     {
       "id": "harris",
+      "internship": false,
       "company": "Harris Associates",
-      "role": "Lead DevOps Engineer",
+      "role": "Lead Software Engineer (Platform/DevOps)",
       "location": "Chicago, IL",
       "dates": "Sep 2024 — Present",
+      "titles": [
+        { "role": "Lead Software Engineer (Platform/DevOps)", "dates": "Jan 2026 — Present" },
+        { "role": "Senior DevOps Engineer", "dates": "Sep 2024 — Jan 2026" }
+      ],
       "bullets": [
         "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments",
         "Standardized deployment of Python and .NET apps on Kubernetes (Deployments, StatefulSets, CronJobs), improving reliability and accelerating delivery across infrastructure teams",
@@ -26,6 +31,7 @@
     },
     {
       "id": "att-principal",
+      "internship": false,
       "company": "AT&T",
       "role": "Principal Software Engineer",
       "location": "Chicago, IL",
@@ -37,6 +43,7 @@
     },
     {
       "id": "att-senior",
+      "internship": false,
       "company": "AT&T",
       "role": "Senior DevOps Engineer",
       "location": "Atlanta, GA",
@@ -48,6 +55,7 @@
     },
     {
       "id": "warnermedia",
+      "internship": false,
       "company": "WarnerMedia",
       "role": "SRE Engineer II (Platform Engineering)",
       "location": "Atlanta, GA",
@@ -62,6 +70,7 @@
     },
     {
       "id": "vmware",
+      "internship": false,
       "company": "VMware",
       "role": "MDM Consultant",
       "location": "Atlanta, GA",
@@ -72,6 +81,7 @@
     },
     {
       "id": "fastalerts",
+      "internship": false,
       "company": "Fast Alerts Ltd. Co",
       "role": "Co-Founder",
       "location": "Atlanta, GA",

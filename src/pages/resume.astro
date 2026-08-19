@@ -2,6 +2,15 @@
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+// The caps are stated to the visitor in the markup below and enforced in the
+// Pages Function; both read them from the same module so the page cannot end
+// up advertising a limit the endpoint does not keep.
+import {
+  ACCEPT_ATTR,
+  MAX_DESCRIPTION_CHARS,
+  MAX_UPLOAD_BYTES,
+  sizeLabel,
+} from '../scripts/job-file';
 
 const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 ---
@@ -11,35 +20,66 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
   description="Generate a resume tailored to what you're hiring for, or download the current one."
 >
   <Header />
-  <main>
+  <main id="main" tabindex="-1">
     <h1>generate my resume</h1>
     <p class="lede">
-      Tell me what you're hiring for and I'll assemble a one-page resume in my real resume's
-      format, auto-selecting the most relevant projects from this site. Every generation is vetted
-      before download: facts come only from my canonical record, and any quantified claim that
-      can't be traced to a source is removed.
+      Tell me what you're hiring for, paste the job description, or attach the posting as a file,
+      and I'll assemble a one-page
+      resume in my real resume's format, keeping the roles that actually speak to it and cutting
+      the ones that don't. Every generation is vetted before download: facts come only from my
+      canonical record, and any quantified claim that can't be traced to a source is removed.
       <span class="data">Shared limit: 5 tailored generations per day, on my dime.</span>
     </p>
 
     <form id="resume-form">
       <label class="interest">
         <span class="data">what are you hiring for? (optional)</span>
-        <input name="interest" maxlength="500" placeholder="e.g. platform engineering lead, K8s + IaC heavy" />
+        <textarea
+          name="interest"
+          maxlength={MAX_DESCRIPTION_CHARS}
+          rows="5"
+          placeholder="e.g. platform engineering lead, K8s + IaC heavy. Or paste the whole job description."
+        ></textarea>
       </label>
+
+      {/* Third route to the same generation. The picker is a plain file input
+          with a real label, kept visible rather than hidden behind a styled
+          div, so it stays keyboard reachable; dropping is a shortcut on top of
+          it and never the only way in. */}
+      <div class="attach">
+        <label class="data" for="jd-file">
+          or attach the posting (pdf, docx, txt, md; up to {sizeLabel(MAX_UPLOAD_BYTES)})
+        </label>
+        <input type="file" id="jd-file" accept={ACCEPT_ATTR} />
+        <p class="attach-hint data">You can also drop the file anywhere on this page.</p>
+        {/* Acceptance and refusal both land here, marked "[x] " or "[!] " the
+            way the step list marks its own, so a reader hears the outcome and
+            not just the file name. */}
+        <p class="attach-state data" role="status" aria-live="polite"></p>
+        <button type="button" id="attach-clear" hidden>[ remove file ]</button>
+      </div>
 
       {sitekey && <div class="cf-turnstile" data-sitekey={sitekey} data-theme="dark" />}
 
+      {/* The current resume is a file on the server, not something this page
+          builds: /resume/view renders it from the monthly-assessed content and
+          is a permalink in its own right. Same origin, so `download` is
+          honoured and the visitor gets the file rather than the viewer. */}
       <div class="actions">
         <button type="submit">[ generate tailored resume ]</button>
-        <button type="button" id="download-current">[ download current resume ]</button>
+        <a class="download" href="/resume/view" download="Grayson Adams Resume.pdf">[ download current resume ]</a>
+        <a class="view" href="/resume/view">[ view ]</a>
       </div>
       <p class="alt-hint data">
         The current resume is the one I'm advertising today: no generation, no wait, no limit.
       </p>
 
-      <ol id="gen-steps" class="data" hidden>
+      {/* The marks are text ("[x] ", "[!] "), not icons, so a reader hears the
+          state along with the step. aria-live carries each change without the
+          reader having to go looking for the list. */}
+      <ol id="gen-steps" class="data" hidden aria-label="Generation progress" aria-live="polite">
         <li data-step="bot"><span class="mark"></span>anti-bot check</li>
-        <li data-step="gen"><span class="mark"></span>tailoring text from my write-ups</li>
+        <li data-step="gen"><span class="mark"></span>selecting relevant roles and tailoring bullets</li>
         <li data-step="facts"><span class="mark"></span>employers, titles, dates: canonical record only (never generated)</li>
         <li data-step="volume"><span class="mark"></span>bullet volume capped at the original resume's</li>
         <li data-step="numbers"><span class="mark"></span>quantified claims cross-checked against source</li>
@@ -56,6 +96,22 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 
 <script>
   import type { GeneratedContent } from '../scripts/resume-pdf';
+  import {
+    LEGACY_DOC,
+    MAX_DESCRIPTION_CHARS,
+    MAX_UPLOAD_BYTES,
+    PDF_PAGE_CAP,
+    TOO_BIG,
+    TOO_MANY_PAGES,
+    UploadError,
+    WRONG_TYPE,
+    bytesToBase64,
+    classifyName,
+    countPdfPages,
+    docxToText,
+    sizeLabel,
+    sniff,
+  } from '../scripts/job-file';
 
   const form = document.getElementById('resume-form') as HTMLFormElement;
   const status = form.querySelector('.status') as HTMLElement;
@@ -76,7 +132,7 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
         n.className = 'note';
         li.appendChild(n);
       }
-      n.textContent = ` — ${note}`;
+      n.textContent = ` - ${note}`;
     }
   };
   const resetSteps = () => {
@@ -85,11 +141,58 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
       li.dataset.state = 'pending';
       (li.querySelector('.mark') as HTMLElement).textContent = '[ ] ';
       li.querySelector('.note')?.remove();
+      li.querySelector('.tick')?.remove();
     }
   };
 
+  /**
+   * Seconds elapsed on the step currently running.
+   *
+   * The model call is the one part of this with nothing to report while it
+   * happens, and a step list that sits unchanged for half a minute reads as a
+   * page that has died. The counter is aria-hidden on purpose: #gen-steps is
+   * an aria-live region, so a number ticking inside it would be announced
+   * every second, which is worse than silence. The step's own wording, which a
+   * screen reader does hear, is unchanged by any of this.
+   */
+  let ticker: number | undefined;
+  const startTicker = (id: string) => {
+    stopTicker();
+    const li = steps.querySelector<HTMLElement>(`[data-step="${id}"]`);
+    if (!li) return;
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.setAttribute('aria-hidden', 'true');
+    li.appendChild(tick);
+    const began = Date.now();
+    const paint = () => {
+      tick.textContent = ` ${Math.round((Date.now() - began) / 1000)}s`;
+    };
+    paint();
+    ticker = window.setInterval(paint, 1000);
+  };
+  function stopTicker() {
+    if (ticker !== undefined) window.clearInterval(ticker);
+    ticker = undefined;
+  }
+
+  /**
+   * Leaving mid-generation loses it, and it still counts.
+   *
+   * The model call happens on the server but the vetting and the PDF render
+   * happen here, so the result exists nowhere else and closing the tab throws
+   * it away. The slot is not handed back for that: it was a real generation,
+   * paid for, and the server has no way to know the tab is gone.
+   */
+  let generating = false;
+  const LEAVING =
+    'generating. this can take a while: leave the page and the generation is lost, and it still counts against today’s five.';
+  window.addEventListener('beforeunload', (ev) => {
+    if (generating) ev.preventDefault();
+  });
+
   const download = (bytes: Uint8Array, name: string) => {
-    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -97,37 +200,173 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     URL.revokeObjectURL(a.href);
   };
 
-  // Path 1: the resume as advertised. Pure client-side, no API, no limit.
-  document.getElementById('download-current')?.addEventListener('click', async () => {
-    status.textContent = 'rendering…';
-    const { buildResumePdf, currentResumeContent } = await import('../scripts/resume-pdf');
-    const { bytes } = await buildResumePdf(currentResumeContent());
-    download(bytes, 'Grayson Adams - Resume.pdf');
-    status.textContent = 'done: check your downloads.';
+  // ---------------------------------------------------------------------
+  // Attaching the posting as a file
+  // ---------------------------------------------------------------------
+
+  /**
+   * What gets posted for an attachment.
+   *
+   * A PDF and a .docx travel as bytes so the Function can sniff them itself;
+   * .txt and .md travel as the text they already are. The extraction the
+   * browser does for a .docx is for the confirmation line only. The Function
+   * unzips the same file again and uses its own reading, because a browser is
+   * not a party this endpoint can take a job description on the word of.
+   */
+  type Wire =
+    | { kind: 'pdf' | 'docx'; name: string; b64: string }
+    | { kind: 'text'; name: string; text: string };
+
+  const fileInput = document.getElementById('jd-file') as HTMLInputElement;
+  const attachState = form.querySelector('.attach-state') as HTMLElement;
+  const attachClear = document.getElementById('attach-clear') as HTMLButtonElement;
+  let attached: Wire | null = null;
+
+  const say = (state: 'busy' | 'ok' | 'error', text: string) => {
+    attachState.dataset.state = state;
+    attachState.textContent = `${state === 'ok' ? '[x] ' : state === 'error' ? '[!] ' : '[.] '}${text}`;
+    attachClear.hidden = state !== 'ok';
+  };
+
+  const forget = (announce: boolean) => {
+    attached = null;
+    fileInput.value = '';
+    attachClear.hidden = true;
+    attachState.textContent = announce ? '[x] file removed.' : '';
+    if (announce) attachState.dataset.state = 'ok';
+    else delete attachState.dataset.state;
+  };
+
+  /** Trim to what the endpoint will actually read, and say so rather than silently dropping it. */
+  const capText = (text: string): { text: string; note: string } => {
+    if (text.length <= MAX_DESCRIPTION_CHARS) return { text, note: '' };
+    return {
+      text: text.slice(0, MAX_DESCRIPTION_CHARS),
+      note: ` (trimmed to the first ${MAX_DESCRIPTION_CHARS.toLocaleString()})`,
+    };
+  };
+
+  const count = (n: number, one: string, many: string) =>
+    `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+  async function attach(file: File) {
+    forget(false);
+    const named = classifyName(file.name);
+    if (named === 'doc') return say('error', LEGACY_DOC);
+    if (named === null) return say('error', WRONG_TYPE);
+    if (file.size === 0) return say('error', 'That file is empty. Paste the text instead.');
+    if (file.size > MAX_UPLOAD_BYTES) return say('error', TOO_BIG);
+
+    say('busy', `reading ${file.name}…`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const actual = sniff(bytes);
+    // A .doc renamed to .docx is the likeliest way to arrive here holding a
+    // format nothing on this page can read, and the extension will not say so.
+    if (actual === 'ole') return say('error', LEGACY_DOC);
+    const size = sizeLabel(file.size);
+
+    if (named === 'pdf') {
+      if (actual !== 'pdf') return say('error', 'That is not a PDF, whatever it is named.');
+      const pages = countPdfPages(bytes);
+      if (pages !== null && pages > PDF_PAGE_CAP) return say('error', TOO_MANY_PAGES);
+      attached = { kind: 'pdf', name: file.name, b64: bytesToBase64(bytes) };
+      const pageNote = pages === null ? '' : `, ${count(pages, 'page', 'pages')}`;
+      return say('ok', `${file.name}, ${size}${pageNote}: sent as a PDF.`);
+    }
+
+    if (named === 'docx') {
+      if (actual !== 'zip') return say('error', 'That is not a .docx, whatever it is named.');
+      let text: string;
+      try {
+        text = await docxToText(bytes);
+      } catch (err) {
+        return say(
+          'error',
+          err instanceof UploadError
+            ? err.message
+            : 'That .docx could not be read. Paste the text instead.',
+        );
+      }
+      const capped = capText(text);
+      attached = { kind: 'docx', name: file.name, b64: bytesToBase64(bytes) };
+      return say(
+        'ok',
+        `${file.name}, ${size}: ${count(capped.text.length, 'character', 'characters')} read${capped.note}.`,
+      );
+    }
+
+    if (actual !== 'other') return say('error', 'That is not a text file, whatever it is named.');
+    const capped = capText((await file.text()).trim());
+    if (!capped.text) return say('error', 'That file read as empty. Paste the text instead.');
+    attached = { kind: 'text', name: file.name, text: capped.text };
+    return say(
+      'ok',
+      `${file.name}, ${size}: ${count(capped.text.length, 'character', 'characters')} read${capped.note}.`,
+    );
+  }
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) void attach(file);
+  });
+  attachClear.addEventListener('click', () => forget(true));
+
+  // Dropping is handled on the document rather than on the form, so a drop
+  // that lands slightly wide still attaches instead of navigating the browser
+  // away to the file. The form is what lights up, because that is where the
+  // file is going. dragleave fires on every child boundary crossed, hence the
+  // depth counter: without it the highlight strobes across the form's controls.
+  let dragDepth = 0;
+  const dragOff = () => {
+    dragDepth = 0;
+    delete form.dataset.drag;
+  };
+  document.addEventListener('dragenter', (ev) => {
+    if (!ev.dataTransfer?.types.includes('Files')) return;
+    dragDepth++;
+    form.dataset.drag = 'on';
+  });
+  document.addEventListener('dragover', (ev) => {
+    if (ev.dataTransfer?.types.includes('Files')) ev.preventDefault();
+  });
+  document.addEventListener('dragleave', () => {
+    if (--dragDepth <= 0) dragOff();
+  });
+  document.addEventListener('drop', (ev) => {
+    const file = ev.dataTransfer?.files?.[0];
+    if (!file) return;
+    ev.preventDefault();
+    dragOff();
+    void attach(file);
   });
 
-  // Path 2: tailored generation with the vetting pipeline.
+  // Tailored generation with the vetting pipeline. The canonical resume is a
+  // link in the markup above; only this path renders in the browser, because
+  // only this path has anything to vet, trim and refill.
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     resetSteps();
-    status.textContent = '';
+    generating = true;
+    status.textContent = LEAVING;
     const turnstileToken =
       form.querySelector<HTMLInputElement>('[name=cf-turnstile-response]')?.value ?? '';
-    const interest = (form.elements.namedItem('interest') as HTMLInputElement).value;
+    const interest = (form.elements.namedItem('interest') as HTMLTextAreaElement).value;
 
     setStep('bot', 'running');
     setStep('gen', 'running');
+    startTicker('gen');
     try {
       // Corpus fetch overlaps the generation round-trip.
-      const [{ buildCorpus, vetGeneration, trimForFit }, pdfMod, res] = await Promise.all([
-        import('../scripts/resume-validate'),
-        import('../scripts/resume-pdf'),
-        fetch('/api/resume', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ interest, turnstileToken }),
-        }),
-      ]);
+      const [{ buildCorpus, vetGeneration, trimForFit, growForFill, cloneGen }, pdfMod, res] =
+        await Promise.all([
+          import('../scripts/resume-validate'),
+          import('../scripts/resume-pdf'),
+          fetch('/api/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interest, turnstileToken, file: attached }),
+          }),
+        ]);
       const body = await res.json();
       if (!res.ok) {
         setStep(res.status === 403 ? 'bot' : 'gen', 'fail');
@@ -143,7 +382,13 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 
       const corpus = await buildCorpus();
       const report = vetGeneration(body.result as GeneratedContent, corpus);
-      setStep('volume', 'ok');
+      setStep(
+        'volume',
+        report.droppedRoles.length > 0 ? 'fixed' : 'ok',
+        report.droppedRoles.length > 0
+          ? `${report.droppedRoles.length} role${report.droppedRoles.length === 1 ? '' : 's'} not relevant here, omitted`
+          : undefined,
+      );
       setStep(
         'numbers',
         report.removedClaims.length > 0 ? 'fixed' : 'ok',
@@ -155,11 +400,48 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
       setStep('fit', 'running');
       let built = await pdfMod.buildResumePdf(report.gen);
       let trims = 0;
-      while (built.pageCount > 1 && trims < 10 && trimForFit(report.gen)) {
+      // The bound is a runaway guard, not a policy. trimForFit returns false
+      // once nothing is left to cut, and that is what normally ends the loop;
+      // a tighter bound just stops early and ships whatever it had, which is
+      // how two-page resumes were getting downloaded while this step still
+      // reported success.
+      while (built.pageCount > 1 && trims < 40 && trimForFit(report.gen)) {
         trims++;
         built = await pdfMod.buildResumePdf(report.gen);
       }
-      setStep('fit', trims > 0 ? 'fixed' : 'ok', trims > 0 ? `trimmed ${trims} bullet${trims === 1 ? '' : 's'}` : undefined);
+      // Then fill. Stopping at the first version that fits leaves the bottom of
+      // the page blank whenever the model was conservative, so keep adding
+      // while the result still lands on one page and keep the last one that did.
+      let grown = 0;
+      // Rejected candidates are remembered rather than ending the loop, because
+      // additions are not the same size: a whole role costs an employer heading
+      // and a title line, so the page can be out of room for one while still
+      // having room for another bullet.
+      const rejected = new Set<string>();
+      while (built.pageCount === 1 && grown < 40) {
+        const candidate = cloneGen(report.gen);
+        const added = growForFill(candidate, rejected);
+        if (!added) break;
+        const attempt = await pdfMod.buildResumePdf(candidate);
+        if (attempt.pageCount > 1) {
+          rejected.add(added);
+          continue;
+        }
+        report.gen = candidate;
+        built = attempt;
+        grown++;
+      }
+      if (built.pageCount > 1) {
+        // One page is the entire promise here, so failing to reach it is a
+        // layout bug worth surfacing rather than a result worth presenting as
+        // fixed. The file still downloads; the visitor is just told the truth.
+        setStep('fit', 'fail', `still ${built.pageCount} pages after ${trims} trims`);
+      } else {
+        const notes = [];
+        if (trims > 0) notes.push(`trimmed ${trims}`);
+        if (grown > 0) notes.push(`added ${grown} to fill the page`);
+        setStep('fit', notes.length > 0 ? 'fixed' : 'ok', notes.join(', ') || undefined);
+      }
 
       download(built.bytes, 'Grayson Adams - Resume (tailored).pdf');
       setStep('done', 'ok');
@@ -203,25 +485,39 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     color: var(--ink-faint);
     letter-spacing: 0.08em;
   }
-  .interest input {
+  /* The control here is a textarea. Selecting `input` matched nothing, so the
+     field rendered as a stock white UA box on the dark page: black on white
+     inside a form the rest of which is ink on ground.
+     --line-control rather than --line, because --surface against --ground is
+     1.13:1 and this border is the only thing marking where the field is. */
+  .interest textarea {
     font: inherit;
     font-size: var(--text-sm);
     color: var(--ink);
     background: var(--surface);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-control);
     border-radius: var(--radius-chip);
     padding: var(--space-2) var(--space-3);
+    resize: vertical;
+  }
+  .interest textarea::placeholder {
+    color: var(--ink-faint);
+  }
+  .interest textarea:focus-visible {
+    border-color: var(--ink-faint);
   }
   .actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3);
   }
-  .actions button {
+  .actions button,
+  .actions .download {
     font-family: var(--font-data);
     font-size: var(--text-sm);
     border-radius: var(--radius-chip);
     padding: var(--space-2) var(--space-3);
+    min-height: 44px;
     cursor: pointer;
   }
   .actions button[type='submit'] {
@@ -229,22 +525,118 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
     background: var(--ink);
     border: 1px solid var(--ink);
   }
-  .actions button[type='button'] {
+  /* A link carrying a button's weight. The flex box is what gives it the 44px
+     target a button gets from its own box, and the underline comes off because
+     the border is already saying this is a control. */
+  .actions .download {
+    display: inline-flex;
+    align-items: center;
     color: var(--ink-dim);
     background: none;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-control);
+    text-decoration: none;
   }
-  .actions button:hover {
+  .actions button:hover,
+  .actions .download:hover {
     opacity: 0.88;
     color: var(--ink);
   }
   .actions button[type='submit']:hover {
     color: var(--ground);
   }
+  /* Quiet on purpose: reading the resume in the tab is the aside, downloading
+     it is the action. */
+  .actions .view {
+    align-self: center;
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+  }
+  .actions .view:hover {
+    color: var(--ink-dim);
+  }
   .alt-hint {
     font-size: var(--text-xs);
     color: var(--ink-faint);
     margin: 0;
+  }
+
+  /* Dashed while it is only an offer to take a file, solid once one is being
+     dragged over the page, so the border itself carries the state. */
+  .attach {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: start;
+    border: 1px dashed var(--line-control);
+    border-radius: var(--radius-chip);
+    padding: var(--space-3);
+  }
+  form[data-drag='on'] .attach {
+    border-style: solid;
+    border-color: var(--ink-faint);
+    background: var(--surface);
+  }
+  .attach > label {
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+  }
+  .attach input[type='file'] {
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    max-width: 100%;
+  }
+  /* Without this the picker renders as the UA's own button: white on the dark
+     page, the same failure the textarea border fixed above. */
+  .attach input[type='file']::file-selector-button {
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    min-height: 44px;
+    margin-right: var(--space-3);
+    cursor: pointer;
+  }
+  .attach input[type='file']:hover::file-selector-button {
+    color: var(--ink);
+  }
+  .attach-hint,
+  .attach-state {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--ink-faint);
+  }
+  .attach-state:empty {
+    display: none;
+  }
+  .attach-state[data-state='ok'] {
+    color: var(--ink-dim);
+  }
+  /* Same reasoning as the failed step above: the [!] mark carries the state
+     and the text tier of the lamp seconds it. */
+  .attach-state[data-state='error'] {
+    color: var(--lamp-products-text);
+  }
+  #attach-clear {
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-chip);
+    padding: var(--space-2) var(--space-3);
+    min-height: 44px;
+    cursor: pointer;
+  }
+  #attach-clear:hover {
+    color: var(--ink);
+  }
+  #attach-clear[hidden] {
+    display: none;
   }
 
   #gen-steps[hidden] {
@@ -277,8 +669,11 @@ const sitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
   #gen-steps li[data-state='fixed'] .mark {
     color: var(--lamp-home);
   }
+  /* The text tier of the lamp, not the lamp: --lamp-products is validated as
+     a dot on the ground and measures 3.27:1 as words on --surface. The [!]
+     mark is what actually carries the state; the colour seconds it. */
   #gen-steps li[data-state='fail'] {
-    color: var(--lamp-products);
+    color: var(--lamp-products-text);
   }
   #gen-steps .note {
     color: var(--ink-faint);

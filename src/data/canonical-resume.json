@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-08-19",
+  "basis": "seeded verbatim from resume-facts.json; replaced monthly by the refresh job",
+  "content": {
+    "skillsets": [
+      {
+        "label": "Software Development",
+        "value": "Python, Javascript (React, Node, jQuery), HTML5, CSS, Bash, PowerShell"
+      },
+      {
+        "label": "Systems Administration",
+        "value": "SQL (Postgres / MySQL), Terraform, Docker, Kubernetes, Ansible / Chef, Jenkins, ELK"
+      },
+      {
+        "label": "Cloud Infrastructure",
+        "value": "Enterprise Azure + Active Directory, AWS, Linux, Mac OS, Windows, ESXi, VirtualBox"
+      },
+      {
+        "label": "Networking",
+        "value": "Nginx/Apache, Firewalls, Load Balancing, Cloud/On-Prem Peering, DNS, TCP"
+      },
+      {
+        "label": "Certified",
+        "value": "Azure Fundamentals, VCP Digital Workspace, VCA Digital Business Transformation"
+      }
+    ],
+    "experienceBullets": [
+      {
+        "id": "harris",
+        "bullets": [
+          "Provisioned and managed Kubernetes clusters using Terraform, creating reusable patterns adopted by 8+ production apps across trading and enterprise environments",
+          "Standardized deployment of Python and .NET apps on Kubernetes (Deployments, StatefulSets, CronJobs), improving reliability and accelerating delivery across infrastructure teams",
+          "Rebuilt CI/CD pipelines with templating and conditional logic, enabling teams to define custom environments, approvals, and pre/post deploy steps",
+          "Embedded Mend and Aqua security scanning into CI/CD to block insecure code and containers, while enforcing pod security policies, RBAC, and Istio-based network controls to maintain cluster integrity",
+          "Cut infra deployment time from 5 days to under 10 minutes by modularizing Terraform, and partnered with quant leadership to roll out automated Databricks deployment and testing adopted firm-wide"
+        ]
+      },
+      {
+        "id": "att-principal",
+        "bullets": [
+          "Lead team of software engineers across different initiatives: automated outage intake, on-call alerting system, full-stack dashboard to visualize application metrics; drastically improving outage resolution times",
+          "Deployed Kubernetes / AKS clusters using Terraform for SRE tooling (Python/Node/Go), implement ArgoCD GitOps, custom Helm charts, and Kustomize. Utilizing Prometheus and Grafana for observability"
+        ]
+      },
+      {
+        "id": "att-senior",
+        "bullets": [
+          "Executed high-visibility, million-dollar migrations from on-prem to Azure, designing technical architecture, understanding requirements, budget constraints, and performed software troubleshooting",
+          "Re-wrote and containerized legacy codebases (e.g. Java, ColdFusion, Python) with modern industry languages while either maintaining or redesigning UX per requirements"
+        ]
+      },
+      {
+        "id": "warnermedia",
+        "bullets": [
+          "Assisted in migrating the entire production workload for live streaming platforms from RKE to AWS EKS",
+          "Transformed manual 100+ AWS resources (e.g. RDS, EC2, ELB) to IaC using Terraform / CloudFormation",
+          "Dockerized/migrated on-prem apps to multiple Kubernetes clusters with autoscaling node pools",
+          "Engineered a Python telemetry application, transmitting 120+ million vital metrics to Datadog, Zabbix, ELK",
+          "Conducted cloud environment audits, enhancing RBAC for AWS resources, integrating AWS Secrets Manager with applications, fortifying IT security and data integrity"
+        ]
+      },
+      {
+        "id": "vmware",
+        "bullets": [
+          "Oversaw Workspace ONE MDM implementations and migrations (e.g. from JAMF) for federal and corporate customers, hosting and scheduling calls while enacting trained verbal communication skills"
+        ]
+      },
+      {
+        "id": "fastalerts",
+        "bullets": [
+          "Launched startup used by 200,000 people addressing the challenges posed by the global computer chip shortage, focusing on alerting consumers to gaming hardware restocks",
+          "Engineered a cloud-hosted Kubernetes cluster backbone for all application infrastructure",
+          "Scanned 500 retailer URLs concurrently using Celery multi-threading, caching data through Redis and SQL",
+          "Built full-stack service with Node.js / React / Python to distribute low-latency restock notifications to thousands of users",
+          "Reinforced API resilience through load balancing and replica sets, application firewalls, and caching policies"
+        ]
+      }
+    ]
+  }
+}

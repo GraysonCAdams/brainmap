@@ -1,0 +1,160 @@
+{
+  "_comment": "Bullets Grayson wrote about the same roles in EARLIER resume iterations, kept as raw material for rewriting rather than as things to print. Each entry is his own prior wording, so the generator can vary emphasis and vocabulary without inventing anything. Provenance is recorded because these age: a 2020 phrasing of a role he held until 2021 is still his, but the 2025 canonical record in resume-facts.json is what governs titles, dates and employers. NOTHING from an internship or a role absent from resume-facts.json belongs in here, so the generator cannot borrow an internship achievement into a full-time role. LinkedIn is represented by a profile export. Only roles that exist in resume-facts.json are carried over from it: the internships and the early ventures on that profile deliberately have no entry here.",
+  "sources": {
+    "resume-2024": "Grayson Adams 2024.pdf (Drive, 2024-07-16)",
+    "resume-2021": "Grayson Adams Resume.pdf (Drive, 2021-06-07)",
+    "resume-2020-appdev": "App Dev.pdf (Drive, 2020-07-10), a role-targeted variant",
+    "linkedin-2026-08": "LinkedIn profile export (Profile.pdf, downloaded 2026-08-18)"
+  },
+  "roles": {
+    "att-principal": [
+      {
+        "source": "resume-2024",
+        "text": "Architect CI/CD pipeline flows using Azure Pipelines for critical services, establishing new team workflows"
+      },
+      {
+        "source": "resume-2024",
+        "text": "Serve as SME during outage and root cause analysis calls, collaborating with cross-functional teams"
+      },
+      {
+        "source": "resume-2024",
+        "text": "Conduct technical interviews, onboard new hires, and provide mentorship on cloud, networking fundamentals, and industry trends"
+      },
+      {
+        "source": "resume-2024",
+        "text": "Host weekly review calls, generate user stories, and ensure operational enhancements are integrated into the roadmap to improve uptime and availability company-wide"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Host weekly review / approval call, generating user stories for team, ensuring operational enhancements are integrated into the roadmap by application owners to increase uptime and availability across company"
+      }
+    ],
+    "att-senior": [
+      {
+        "source": "resume-2024",
+        "text": "Wrote and standardized infrastructure and application CI/CD using Terraform and Azure Pipelines for testing and production environments, with automated code checking, building, and approval gates"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Architected and executed migrations from on-prem to Azure, understanding system requirements, budget constraints, and working around technical obstacles unique to each application"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Awarded High Performer each year by leadership"
+      }
+    ],
+    "warnermedia": [
+      {
+        "source": "resume-2021",
+        "text": "Co-managing a migration effort from RKE to AWS EKS for the entire cloud production workload"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Shorten deployment time from days to minutes for Azure & AWS infrastructure via Terraform scripting"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Dockerize and migrate on-premise applications to Kubernetes infrastructure and between clusters"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Engineered Python-based application for complex alerting and metric aggregation for 10+ legacy apps"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Audit cloud environments and tighten access with AWS security groups, secrets manager, and IAM policies"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Analyze/correlate metric data via third-party solutions such as Datadog, Zabbix, and in-house solutions"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Transformed over 100 manual Azure/AWS resources into Infrastructure-as-Code using Terraform"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Developed and implemented threshold-based alerts in Datadog, Zabbix, and Kibana"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Conducted cloud environment audits, enhancing RBAC for AWS resources, fortifying network security, and integrating AWS Secrets Manager with applications"
+      }
+    ],
+    "vmware": [
+      {
+        "source": "resume-2024",
+        "text": "Integrated identity providers like ADFS/Okta, enabling Single Sign-On (SSO) for desktop, mobile devices"
+      },
+      {
+        "source": "resume-2024",
+        "text": "Supported implementation activities, covering design, configuration, testing, and problem-solving"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Managed federal and corporate customer Workspace ONE implementations as primary point of contact"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Extensively trained in Mobile Device Management practices, educating customers on integration methods"
+      },
+      {
+        "source": "resume-2021",
+        "text": "Monitored progress against schedule; built in and executed contingency plans as necessary"
+      },
+      {
+        "source": "resume-2020-appdev",
+        "text": "Work directly with federal agencies, corporations, partners, and internal teams to implement solutions"
+      },
+      {
+        "source": "resume-2020-appdev",
+        "text": "Communicate progress updates via weekly status calls and executive steering calls"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Provided training in Mobile Device Management practices, educating customers on integration methods"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Oversaw Workspace ONE implementations for federal and corporate customers"
+      }
+    ],
+    "fastalerts": [
+      {
+        "source": "linkedin-2026-08",
+        "text": "Launched a company used by over 200,000 people addressing the challenges posed by the global computer chip shortage, focusing on alerting consumers to gaming hardware restocks"
+      },
+      {
+        "source": "linkedin-2026-08",
+        "text": "Engineered a cloud-hosted Kubernetes cluster backbone for all application infrastructure"
+      }
+    ]
+  },
+  "_writeupSlugs_comment": "Write-ups that belong to a role but carry no `org` frontmatter, because the employer was his own company. The org matching in build-kb.mjs cannot find these, so they are named here.",
+  "writeupSlugs": {
+    "fastalerts": [
+      "fast-alerts",
+      "alert-pipeline"
+    ]
+  },
+  "_profile_comment": "The LinkedIn summary and its skills taxonomy. Not attached to any one role and never printed: it is there so the generator can see how he positions himself and which technology names he actually uses, rather than inferring a register from bullets alone.",
+  "profile": {
+    "source": "linkedin-2026-08",
+    "headline": "Lead Software Engineer @ Harris | Oakmark",
+    "summary": "Full-stack engineer, experienced in architecting and servicing cloud environments for Fortune 50 companies, as well as developing customer-facing applications that often run on those same environments. Side projects have included launching my own startup in 2021 that has served over 200,000 users, and a separate previous project which received more than half a million unique visitors over two years.",
+    "skillGroups": {
+      "Cloud Environments": "AWS, Azure, Private Home Lab (ESXi)",
+      "Virtualization": "ESXi 6.7, EC2, Azure VM, VirtualBox",
+      "Orchestration": "Kubernetes, EKS, Terraform, Docker, Rancher (RKE)",
+      "Languages": "React, Python, JavaScript, Node.js, Java, HTML5, Bash, PowerShell, CSS3, jQuery, PHP, SQL",
+      "Web Development": "nginx, Apache2, REST API, IIS, Postman, Balsamiq",
+      "Monitoring": "Datadog, Zabbix, ELK, in-house solutions",
+      "CI/CD": "Azure Pipelines, Jenkins (+ Blue Ocean)",
+      "Database": "PostgreSQL, MySQL, Microsoft SQL Server"
+    },
+    "honors": [
+      "Eagle Scout",
+      "High Performer Award (twice)"
+    ]
+  }
+}
