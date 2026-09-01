@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-08-19",
- "basis": "resume-facts.json after its 2026-08-19 restructure (headline, rebuilt skills taxonomy, per-title bullet attribution, Fast Alerts in date order, VMware title-only); content mirrors facts exactly",
+ "generatedAt": "2026-09-01",
+ "basis": "Knowledge base rebuilt 2026-09-01 (private KB present; 8 write-ups and 29 prior bullets for the current role); re-weighted the Lead role's authorization bullet toward the sign-in redesign, other roles unchanged from the 2026-08-19 assessment",
  "content": {
   "skillsets": [
    {
@@ -29,7 +29,7 @@
     "id": "harris",
     "bullets": [
      "Designed a scheduled-agent execution platform from scratch: fetch-at-runtime code over pre-baked dependencies closed outbound package access at runtime and cut cold starts from about a minute to five seconds",
-     "Built the authorization layer and developer portal for the firm’s internal AI platform: OAuth 2.0 scoped consent, per-tool scope enforcement, a REST API, and the registry that distributes its library of reusable AI tools",
+     "Built the authorization layer, developer portal and tool registry for the firm’s internal AI platform: OAuth 2.0 scoped consent and per-tool scope enforcement; replaced device-code sign-in with a single-use, human-approved pairing code",
      "Open-sourced a credential-isolation broker that lets AI coding agents use secrets without ever seeing a value, and drove its adoption for engineering use inside the firm",
      "Led an access-control audit of 200+ repositories and a security-hardening sweep of developer tooling, each turned into a formal remediation project; briefed senior security leadership on risk across five Kubernetes clusters",
      "Founded and lead a firm-wide AI community of practice reporting into AI governance; primary technical stakeholder for the internal AI research platform with partners, directors and the CTO; direct a team of engineering interns"
