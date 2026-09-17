@@ -35,6 +35,12 @@ unrelated to your change, stop and notify rather than fixing unrelated code.
    - Never invent employers, titles, dates, metrics, or technologies. Every
      bullet must be grounded in facts or that role's KB entry.
    - Per-role bullet count must not exceed the canonical count in facts.
+   - Write at the altitude of the existing canonical bullets: a system,
+     capability or program he owned and what it did for the business. One
+     incident, bug, root cause or debugging session is never a bullet on its
+     own; the fix is at most a closing clause on the bullet about the system
+     it belongs to. A number measures scope or outcome, never a count of
+     failures fixed.
    - Plain, declarative register. No marketing adjectives. No em dashes.
    - This JSON is committed to a PUBLIC repo: bullets must be resume-grade
      public statements. No internal system names, hostnames, or figures beyond

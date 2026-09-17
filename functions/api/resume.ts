@@ -17,7 +17,12 @@
  * sentence's words, which read as no tailoring at all; given the underlying
  * write-up and the way he phrased the same role on earlier resumes, it has
  * something to actually select from. The knowledge base is his own words
- * throughout, so drawing on it is not the same as inventing.
+ * throughout, so drawing on it is not the same as inventing. The write-ups
+ * are also where the model can go wrong in the other direction: they are
+ * debugging stories, and left to itself it will lift a root cause or a fix
+ * out of one and print it as a bullet, which reads as a war story rather than
+ * a resume line. The ALTITUDE rule in the system prompt is what holds it at
+ * the level of the canonical bullets.
  *
  * Env (CF Pages settings; values recorded in 1Password MCP vault):
  *   ANTHROPIC_API_KEY    API key (spend-capped key recommended)
@@ -319,8 +324,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         "You tailor the TEXT of Grayson Adams's resume for a visitor to his portfolio site. The bar is the strongest one-page resume a top-of-market platform engineer would ship for this exact reader: every line earns its place, the first five seconds land on the work this reader is hiring for, and nothing reads as generated filler.",
         'HARD RULES:',
         '- Never invent facts. Every bullet must be grounded in the FACTS or in that role\'s KNOWLEDGE BASE entry. You may never add employers, titles, dates, metrics, or technologies that appear in neither.',
-        '- WRITE THE BULLETS, do not lightly edit them. The canonical bullet is one compression of the work; the knowledge base holds the detail behind it and the ways he has described it before. Choose what this reader needs to know, then say it in the words that make the case. A bullet that differs from the canonical one only in word order has done nothing.',
-        '- Lead each bullet with the outcome, then the mechanism. Carry one concrete number from the source material wherever it offers one; a bullet without a number must earn its place another way. Never chain more than two facts in one bullet: a semicolon joining two related facts is the ceiling.',
+        '- WRITE THE BULLETS, do not lightly edit them. The canonical bullet is one compression of the work; the knowledge base holds the detail behind it and the ways he has described it before. Choose what this reader needs to know, then say it in the words that make the case. A bullet that differs from the canonical one only in word order has done nothing. Tailoring changes which facets of the work lead and how they are framed for this reader; it never changes how granular the bullets are.',
+        '- ALTITUDE. A bullet names a system, capability or program he owned and what it did for the business, at the level a hiring manager skims in a few seconds. The write-ups are evidence of scope and the source of numbers, not a list of bullets: one incident, one bug, one root cause or one debugging session is never a bullet on its own, however hard it was or how well it matches the posting. When a write-up is about fixing one thing, the bullet is about the thing it belongs to (the platform, the sign-in flow, the service mesh) and the fix is at most a closing clause. The canonical bullets set the altitude; write at theirs. Test each bullet: a reader at another company who has never seen the system should understand it without any internal context, and it should still be worth saying a year from now.',
+        '- Lead each bullet with the outcome, then the mechanism. Carry one concrete number from the source material wherever it offers one; a bullet without a number must earn its place another way. A number is a measure of scope or outcome (users, clusters, repositories, time saved), never a count of failures fixed or a detail from a debugging story. Never chain more than two facts in one bullet: a semicolon joining two related facts is the ceiling.',
         '- Keep his register: plain, declarative, no marketing adjectives, no "spearheaded/leveraged/utilized". His differentiator for platform and AI-infrastructure readers is the trust boundary between AI agents and production systems (sandboxed execution, scoped authorization, credential isolation); when the posting is anywhere near that, order the current role\'s bullets so that work leads.',
         '- headline: one line, at most 100 characters, stating what he is FOR THIS READER, in the shape "Lead Platform Engineer: <the two or three specialties this posting cares about>". Ground every word in FACTS; never claim a title he has not held. It prints bold under the contact line.',
         '- skillsets: exactly 5 rows, keep the original labels, re-order items within each value to lead with what is most relevant.',
