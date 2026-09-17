@@ -54,10 +54,15 @@ into $HOME, but it shares the host's loopback, so the tree is handed over as
 a tarball on 127.0.0.1:
 
 ```bash
-tar czf /tmp/claude-*/…/scratchpad/brainmap-deploy.tgz \
+tar czf <scratchpad>/brainmap-deploy.tgz \
     dist functions src package.json node_modules
+cp "$(readlink -f "$(which node)")" <scratchpad>/node24
 (cd <scratchpad> && python3 -m http.server 8917 --bind 127.0.0.1 &)
 ```
+
+The Node binary rides along for the same reason the tree does. The shell's
+Node comes from nvm under `$HOME`, which the broker cannot read, so without it
+wrangler runs on the system `/usr/bin/node` (v18) and refuses to start.
 
 Then one brokered command (Production vault; it is unlock-gated, so a human
 may need `sudo sandbroker unlock Production --minutes 30` first):
@@ -66,16 +71,20 @@ may need `sudo sandbroker unlock Production --minutes 30` first):
 mcp__sandbroker-production__run
   secrets: CF_EMAIL=op://Production/Cloudflare Global API Key/username
            CF_KEY=op://Production/Cloudflare Global API Key/password
-  command: mkdir -p /tmp/bm && cd /tmp/bm \
+  command: rm -rf /tmp/bm && mkdir -p /tmp/bm/bin && cd /tmp/bm \
     && curl -s http://127.0.0.1:8917/brainmap-deploy.tgz | tar xz \
-    && HOME=/tmp/bm/.home CLOUDFLARE_API_KEY="$CF_KEY" CLOUDFLARE_EMAIL="$CF_EMAIL" \
-       ./node_modules/wrangler/bin/wrangler.js pages deploy dist \
+    && curl -s -o bin/node http://127.0.0.1:8917/node24 && chmod +x bin/node \
+    && PATH=/tmp/bm/bin:$PATH HOME=/tmp/bm/.home \
+       CLOUDFLARE_API_KEY="$CF_KEY" CLOUDFLARE_EMAIL="$CF_EMAIL" \
+       ./bin/node ./node_modules/wrangler/bin/wrangler.js pages deploy dist \
        --project-name brainmap --branch main --commit-dirty=true
 ```
 
-Kill the loopback server and delete the tarball afterwards. Wrangler finds
-`functions/` relative to its cwd and bundles it with the repo's own
-node_modules, which is why the tarball carries more than `dist`.
+Kill the loopback server by its listening pid (`ss -ltnp | grep 8917`; a
+`pkill -f` on the command string matches the calling shell too) and delete the
+tarball and the node copy afterwards. Wrangler finds `functions/` relative to
+its cwd and bundles it with the repo's own node_modules, which is why the
+tarball carries more than `dist`.
 
 ## /resume/view and the monthly refresh
 
